@@ -1,12 +1,11 @@
 /* =========================================================
-   J.A.R.V.I.S
-   Gemini + Voice + Persistent Memory
-========================================================= */
+   J.A.R.V.I.S. — AI + LIVE WEB + MEMORY + VOICE
+   ========================================================= */
 
 
 /* =========================================================
-   API KEY
-========================================================= */
+   1. API KEY
+   ========================================================= */
 
 let API_KEY = localStorage.getItem("jarvis_key");
 
@@ -20,19 +19,8 @@ if (!API_KEY) {
 
 
 /* =========================================================
-   MODELS
-========================================================= */
-
-const MODELS = [
-  "gemini-3.8-flash",
-  "gemini-3.7-flash",
-  "gemini-3.6-flash"
-];
-
-
-/* =========================================================
-   ELEMENTS
-========================================================= */
+   2. ELEMENTS
+   ========================================================= */
 
 const chat = document.getElementById("chat");
 const input = document.getElementById("msg");
@@ -40,175 +28,79 @@ const input = document.getElementById("msg");
 const sendBtn = document.getElementById("send");
 const micBtn = document.getElementById("mic-btn");
 
-const coreState = document.getElementById("core-state");
-const statusText = document.getElementById("status-text");
+const systemState = document.getElementById("system-state");
 
-const memoryStatus =
-  document.getElementById("memory-status");
+const aiStatus = document.getElementById("ai-status");
+const networkStatus = document.getElementById("network-status");
 
-const voiceStatus =
-  document.getElementById("voice-status");
-
-const memoryPanel =
-  document.getElementById("memory-panel");
-
-const overlay =
-  document.getElementById("overlay");
-
-const memoryToggle =
-  document.getElementById("memory-toggle");
-
-const memoryClose =
-  document.getElementById("memory-close");
-
-const memoryList =
-  document.getElementById("memory-list");
-
-const memoryCount =
-  document.getElementById("memory-count");
-
-const memorySearch =
-  document.getElementById("memory-search");
-
-const saveMemoryBtn =
-  document.getElementById("save-memory");
-
-const clearMemoryBtn =
-  document.getElementById("clear-memory");
-
-const voiceSelect =
-  document.getElementById("voice-select");
-
-const pitchControl =
-  document.getElementById("pitch");
-
-const rateControl =
-  document.getElementById("rate");
-
-const testVoiceBtn =
-  document.getElementById("test-voice");
+const memoryStatus = document.getElementById("memory-status");
+const voiceStatus = document.getElementById("voice-status");
 
 
 /* =========================================================
-   CHAT STATE
-========================================================= */
+   3. GEMINI MODEL
+   ========================================================= */
+
+const MODEL = "gemini-3.8-flash";
+
+
+/* =========================================================
+   4. CONVERSATION MEMORY
+   ========================================================= */
 
 let conversation = [];
 
-let currentConversationId =
-  crypto.randomUUID
-    ? crypto.randomUUID()
-    : Date.now().toString();
-
-let voices = [];
-
 
 /* =========================================================
-   UI STATUS
-========================================================= */
-
-function setStatus(state, message) {
-
-  coreState.textContent = state;
-
-  statusText.textContent = message;
-
-}
-
-
-/* =========================================================
-   ADD CHAT MESSAGE
-========================================================= */
-
-function addMessage(text, type) {
-
-  const message =
-    document.createElement("div");
-
-  message.className = `msg ${type}`;
-
-  message.innerText = text;
-
-  chat.appendChild(message);
-
-  chat.scrollTop =
-    chat.scrollHeight;
-
-  return message;
-}
-
-
-/* =========================================================
-   SAVE CONVERSATION LOCALLY
-========================================================= */
-
-function saveConversationMessage(role, text) {
-
-  conversation.push({
-    role,
-    text,
-    time: Date.now()
-  });
-
-}
-
-
-/* =========================================================
-   INDEXED DB
-========================================================= */
+   5. INDEXEDDB MEMORY
+   ========================================================= */
 
 const DB_NAME = "JARVIS_MEMORY_DB";
+const DB_VERSION = 2;
 
-const DB_VERSION = 1;
-
-const STORE_NAME = "memories";
+let db = null;
 
 
 function openDatabase() {
 
   return new Promise((resolve, reject) => {
 
-    const request =
-      indexedDB.open(DB_NAME, DB_VERSION);
-
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = event => {
 
-      const db = event.target.result;
+      const database = event.target.result;
 
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
+      if (!database.objectStoreNames.contains("memories")) {
 
-        const store =
-          db.createObjectStore(
-            STORE_NAME,
-            {
-              keyPath: "id",
-              autoIncrement: true
-            }
-          );
+        const store = database.createObjectStore(
+          "memories",
+          {
+            keyPath: "id",
+            autoIncrement: true
+          }
+        );
 
         store.createIndex(
           "created",
-          "created"
+          "created",
+          {
+            unique: false
+          }
         );
-
       }
 
     };
 
+    request.onsuccess = event => {
 
-    request.onsuccess = () => {
+      db = event.target.result;
 
-      memoryStatus.textContent = "READY";
-
-      resolve(request.result);
+      resolve(db);
 
     };
 
-
     request.onerror = () => {
-
-      memoryStatus.textContent = "ERROR";
 
       reject(request.error);
 
@@ -219,87 +111,66 @@ function openDatabase() {
 }
 
 
-/* =========================================================
-   SAVE MEMORY
-========================================================= */
-
 async function saveMemory(title, text) {
 
-  const db =
+  if (!db) {
     await openDatabase();
+  }
 
   return new Promise((resolve, reject) => {
 
-    const transaction =
-      db.transaction(
-        STORE_NAME,
-        "readwrite"
-      );
+    const transaction = db.transaction(
+      "memories",
+      "readwrite"
+    );
 
-    const store =
-      transaction.objectStore(STORE_NAME);
-
+    const store = transaction.objectStore("memories");
 
     store.add({
+
       title,
       text,
-      created: Date.now()
+
+      created: new Date().toISOString()
+
     });
 
-
-    transaction.oncomplete = () => {
-
-      loadMemories();
-
-      resolve();
-
-    };
-
-
-    transaction.onerror = () => {
-
-      reject(transaction.error);
-
-    };
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
 
   });
 
 }
 
 
-/* =========================================================
-   GET MEMORIES
-========================================================= */
-
 async function getMemories() {
 
-  const db =
+  if (!db) {
     await openDatabase();
+  }
 
   return new Promise((resolve, reject) => {
 
-    const transaction =
-      db.transaction(
-        STORE_NAME,
-        "readonly"
-      );
+    const transaction = db.transaction(
+      "memories",
+      "readonly"
+    );
 
-    const store =
-      transaction.objectStore(STORE_NAME);
+    const store = transaction.objectStore("memories");
 
-
-    const request =
-      store.getAll();
-
+    const request = store.getAll();
 
     request.onsuccess = () => {
 
       resolve(
-        request.result.reverse()
+        request.result.sort(
+          (a, b) =>
+            new Date(b.created) -
+            new Date(a.created)
+        )
       );
 
     };
-
 
     request.onerror = () => {
 
@@ -312,97 +183,42 @@ async function getMemories() {
 }
 
 
-/* =========================================================
-   DELETE MEMORY
-========================================================= */
-
 async function deleteMemory(id) {
 
-  const db =
-    await openDatabase();
-
   return new Promise((resolve, reject) => {
 
-    const transaction =
-      db.transaction(
-        STORE_NAME,
-        "readwrite"
-      );
-
-    const store =
-      transaction.objectStore(STORE_NAME);
-
-
-    store.delete(id);
-
-
-    transaction.oncomplete = () => {
-
-      loadMemories();
-
-      resolve();
-
-    };
-
-
-    transaction.onerror = () => {
-
-      reject(transaction.error);
-
-    };
-
-  });
-
-}
-
-
-/* =========================================================
-   CLEAR MEMORY
-========================================================= */
-
-async function clearAllMemory() {
-
-  const confirmed =
-    confirm(
-      "Delete all J.A.R.V.I.S memories?"
+    const transaction = db.transaction(
+      "memories",
+      "readwrite"
     );
 
-  if (!confirmed) return;
+    transaction
+      .objectStore("memories")
+      .delete(id);
+
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+
+  });
+
+}
 
 
-  const db =
-    await openDatabase();
-
+async function clearMemory() {
 
   return new Promise((resolve, reject) => {
 
-    const transaction =
-      db.transaction(
-        STORE_NAME,
-        "readwrite"
-      );
+    const transaction = db.transaction(
+      "memories",
+      "readwrite"
+    );
 
-    const store =
-      transaction.objectStore(STORE_NAME);
+    transaction
+      .objectStore("memories")
+      .clear();
 
-
-    store.clear();
-
-
-    transaction.oncomplete = () => {
-
-      loadMemories();
-
-      resolve();
-
-    };
-
-
-    transaction.onerror = () => {
-
-      reject(transaction.error);
-
-    };
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
 
   });
 
@@ -410,237 +226,43 @@ async function clearAllMemory() {
 
 
 /* =========================================================
-   DISPLAY MEMORIES
-========================================================= */
+   6. LOAD MEMORY
+   ========================================================= */
 
-async function loadMemories() {
+async function buildMemoryContext() {
 
-  const memories =
-    await getMemories();
+  try {
 
+    const memories = await getMemories();
 
-  const search =
-    memorySearch.value
-      .trim()
-      .toLowerCase();
+    if (!memories.length) {
+      return "";
+    }
 
+    const recent = memories.slice(0, 12);
 
-  const filtered =
-    memories.filter(memory => {
+    return recent
+      .map(memory =>
+        `[Memory: ${memory.title}]\n${memory.text}`
+      )
+      .join("\n\n");
 
-      if (!search) return true;
+  } catch (error) {
 
-      return (
-        memory.title
-          .toLowerCase()
-          .includes(search) ||
+    console.warn("Memory unavailable:", error);
 
-        memory.text
-          .toLowerCase()
-          .includes(search)
-      );
-
-    });
-
-
-  memoryCount.textContent =
-    `${memories.length} memor${memories.length === 1 ? "y" : "ies"}`;
-
-
-  memoryList.innerHTML = "";
-
-
-  if (filtered.length === 0) {
-
-    memoryList.innerHTML = `
-      <div class="memory-card">
-        <div class="memory-card-text">
-          No memories found.
-        </div>
-      </div>
-    `;
-
-    return;
+    return "";
 
   }
 
-
-  filtered.forEach(memory => {
-
-    const card =
-      document.createElement("div");
-
-    card.className =
-      "memory-card";
-
-
-    const title =
-      document.createElement("div");
-
-    title.className =
-      "memory-card-title";
-
-    title.innerText =
-      memory.title;
-
-
-    const text =
-      document.createElement("div");
-
-    text.className =
-      "memory-card-text";
-
-    text.innerText =
-      memory.text;
-
-
-    const date =
-      document.createElement("div");
-
-    date.className =
-      "memory-card-date";
-
-    date.innerText =
-      new Date(memory.created)
-        .toLocaleString();
-
-
-    const deleteBtn =
-      document.createElement("button");
-
-    deleteBtn.className =
-      "memory-delete";
-
-    deleteBtn.innerText =
-      "DELETE";
-
-
-    deleteBtn.onclick =
-      () => deleteMemory(memory.id);
-
-
-    card.appendChild(title);
-
-    card.appendChild(text);
-
-    card.appendChild(date);
-
-    card.appendChild(deleteBtn);
-
-    memoryList.appendChild(card);
-
-  });
-
 }
 
 
 /* =========================================================
-   MEMORY PANEL
-========================================================= */
+   7. LIVE WEB AI
+   ========================================================= */
 
-function openMemory() {
-
-  memoryPanel.classList.add("active");
-
-  overlay.classList.add("active");
-
-  loadMemories();
-
-}
-
-
-function closeMemory() {
-
-  memoryPanel.classList.remove("active");
-
-  overlay.classList.remove("active");
-
-}
-
-
-memoryToggle.onclick =
-  openMemory;
-
-
-memoryClose.onclick =
-  closeMemory;
-
-
-overlay.onclick =
-  closeMemory;
-
-
-memorySearch.addEventListener(
-  "input",
-  loadMemories
-);
-
-
-/* =========================================================
-   SAVE CURRENT CHAT
-========================================================= */
-
-saveMemoryBtn.onclick =
-  async () => {
-
-    if (conversation.length === 0) {
-
-      alert(
-        "There is no conversation to save yet."
-      );
-
-      return;
-
-    }
-
-
-    const userMessages =
-      conversation
-        .filter(item => item.role === "user")
-        .map(item => item.text);
-
-
-    const aiMessages =
-      conversation
-        .filter(item => item.role === "assistant")
-        .map(item => item.text);
-
-
-    const summary =
-      [
-        ...userMessages.slice(-5),
-        ...aiMessages.slice(-5)
-      ]
-      .join("\n");
-
-
-    await saveMemory(
-      "Conversation",
-      summary
-    );
-
-
-    setStatus(
-      "MEMORY",
-      "Conversation saved"
-    );
-
-  };
-
-
-/* =========================================================
-   CLEAR MEMORY
-========================================================= */
-
-clearMemoryBtn.onclick =
-  clearAllMemory;
-
-
-/* =========================================================
-   GEMINI API
-========================================================= */
-
-async function callGemini(prompt) {
+async function callGemini(userQuestion) {
 
   if (!API_KEY) {
 
@@ -651,248 +273,210 @@ async function callGemini(prompt) {
   }
 
 
-  let lastError = null;
-
-
-  for (const model of MODELS) {
-
-    try {
-
-      const response =
-        await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type": "application/json",
-              "x-goog-api-key": API_KEY
-            },
-
-            body: JSON.stringify({
-
-              contents: [
-                {
-                  parts: [
-                    {
-                      text: prompt
-                    }
-                  ]
-                }
-              ]
-
-            })
-
-          }
-        );
-
-
-      const data =
-        await response.json();
-
-
-      if (!response.ok || data.error) {
-
-        lastError =
-          new Error(
-            data?.error?.message ||
-            `HTTP ${response.status}`
-          );
-
-        continue;
-
-      }
-
-
-      const answer =
-        data
-          ?.candidates?.[0]
-          ?.content
-          ?.parts
-          ?.map(part => part.text || "")
-          ?.join("")
-          ?.trim();
-
-
-      if (!answer) {
-
-        throw new Error(
-          "Gemini returned an empty response."
-        );
-
-      }
-
-
-      return answer;
-
-    }
-
-    catch (error) {
-
-      lastError = error;
-
-    }
-
-  }
-
-
-  throw (
-    lastError ||
-    new Error("Gemini request failed.")
-  );
-
-}
-
-
-/* =========================================================
-   BUILD MEMORY CONTEXT
-========================================================= */
-
-async function getMemoryContext() {
-
-  try {
-
-    const memories =
-      await getMemories();
-
-
-    if (!memories.length) {
-
-      return "";
-
-    }
-
-
-    return memories
-      .slice(0, 10)
-      .map(
-        memory =>
-          `Memory: ${memory.title}\n${memory.text}`
-      )
-      .join("\n\n");
-
-  }
-
-  catch {
-
-    return "";
-
-  }
-
-}
-
-
-/* =========================================================
-   ASK JARVIS
-========================================================= */
-
-async function askJarvis(userText) {
-
-  setStatus(
-    "THINKING",
-    "Processing your request..."
-  );
-
-
-  const thinkingMessage =
-    addMessage(
-      "J.A.R.V.I.S: Thinking...",
-      "ai"
-    );
-
-
-  saveConversationMessage(
-    "user",
-    userText
-  );
-
-
   const memoryContext =
-    await getMemoryContext();
+    await buildMemoryContext();
 
 
-  const recentConversation =
-    conversation
-      .slice(-12)
-      .map(
-        item =>
-          `${item.role}: ${item.text}`
-      )
-      .join("\n");
-
-
-  const prompt = `
+  const systemPrompt = `
 You are J.A.R.V.I.S., a highly capable personal AI assistant.
 
-Be helpful, intelligent, concise, and natural.
+IMPORTANT RULES:
 
-Use the supplied memory when it is relevant.
-Do not claim to remember something if it is not present.
+1. Answer normal questions intelligently.
+2. When the user asks about CURRENT, TODAY, LATEST, RECENT,
+   LIVE, NEWS, STOCKS, MARKET, PRICES, WEATHER, EVENTS,
+   TECHNOLOGY NEWS, AI NEWS or anything that may have changed,
+   USE GOOGLE SEARCH.
+3. Never pretend that you know today's information if it was not
+   verified.
+4. For Indian stock-market questions, search for current reliable
+   information about NIFTY 50, SENSEX and relevant Indian market
+   news.
+5. Clearly say when a market is closed.
+6. Give concise but useful answers.
+7. Do not invent stock prices.
+8. For financial information, clearly state that it is informational
+   and not personalized financial advice.
+9. Use the user's saved memory when it is relevant.
+10. If sources are available, mention the important sources naturally.
+
+You are speaking as J.A.R.V.I.S., so keep the style calm,
+precise and futuristic.
 
 USER MEMORY:
-${memoryContext || "No stored memories."}
-
-RECENT CONVERSATION:
-${recentConversation}
-
-CURRENT USER MESSAGE:
-${userText}
-
-Respond directly to the user.
+${memoryContext || "No saved memory."}
 `;
 
 
-  try {
+  const requestBody = {
 
-    const reply =
-      await callGemini(prompt);
+    contents: [
+
+      {
+        role: "user",
+
+        parts: [
+
+          {
+            text:
+              systemPrompt +
+              "\n\nUSER QUESTION:\n" +
+              userQuestion
+          }
+
+        ]
+
+      }
+
+    ],
+
+    tools: [
+
+      {
+        google_search: {}
+      }
+
+    ]
+
+  };
 
 
-    thinkingMessage.innerText =
-      "J.A.R.V.I.S: " + reply;
+  const response = await fetch(
+
+    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
+
+    {
+
+      method: "POST",
+
+      headers: {
+
+        "Content-Type": "application/json",
+
+        "x-goog-api-key": API_KEY
+
+      },
+
+      body: JSON.stringify(requestBody)
+
+    }
+
+  );
 
 
-    saveConversationMessage(
-      "assistant",
-      reply
+  const data = await response.json();
+
+
+  if (!response.ok || data.error) {
+
+    throw new Error(
+      data?.error?.message ||
+      `Gemini request failed (${response.status})`
     );
-
-
-    setStatus(
-      "SPEAKING",
-      "Response ready"
-    );
-
-
-    speak(reply);
-
-
-    setTimeout(() => {
-
-      setStatus(
-        "ONLINE",
-        "Systems operational"
-      );
-
-    }, 1200);
-
 
   }
 
-  catch (error) {
 
-    console.error(error);
-
-
-    thinkingMessage.innerText =
-      "J.A.R.V.I.S: ERROR — " +
-      error.message;
+  const answer =
+    data?.candidates?.[0]?.content?.parts
+      ?.map(part => part.text || "")
+      .join("")
+      .trim();
 
 
-    setStatus(
-      "ERROR",
-      "System error"
+  if (!answer) {
+
+    throw new Error(
+      "J.A.R.V.I.S. received an empty response."
     );
+
+  }
+
+
+  return answer;
+
+}
+
+
+/* =========================================================
+   8. ASK JARVIS
+   ========================================================= */
+
+async function askJarvis(question) {
+
+  addMessage(
+    "J.A.R.V.I.S: Accessing intelligence systems...",
+    "ai"
+  );
+
+  systemState.innerText = "PROCESSING REQUEST";
+  aiStatus.innerText = "THINKING";
+
+  networkStatus.innerText = "SEARCHING";
+
+  try {
+
+    conversation.push({
+      role: "user",
+      text: question
+    });
+
+
+    const answer =
+      await callGemini(question);
+
+
+    const lastMessage =
+      chat.lastElementChild;
+
+    if (lastMessage) {
+
+      lastMessage.innerText =
+        "J.A.R.V.I.S: " + answer;
+
+    }
+
+
+    conversation.push({
+      role: "assistant",
+      text: answer
+    });
+
+
+    systemState.innerText =
+      "SYSTEM READY";
+
+    aiStatus.innerText =
+      "ONLINE";
+
+    networkStatus.innerText =
+      "CONNECTED";
+
+
+    speak(answer);
+
+  } catch (error) {
+
+    const lastMessage =
+      chat.lastElementChild;
+
+    if (lastMessage) {
+
+      lastMessage.innerText =
+        "J.A.R.V.I.S: ERROR\n" +
+        error.message;
+
+    }
+
+
+    systemState.innerText =
+      "SYSTEM ERROR";
+
+    aiStatus.innerText =
+      "ERROR";
+
+    networkStatus.innerText =
+      "OFFLINE";
 
   }
 
@@ -900,34 +484,34 @@ Respond directly to the user.
 
 
 /* =========================================================
-   SEND MESSAGE
-========================================================= */
+   9. SEND MESSAGE
+   ========================================================= */
 
 function sendMessage() {
 
   const text =
     input.value.trim();
 
-
-  if (!text) return;
-
+  if (!text) {
+    return;
+  }
 
   addMessage(
     "YOU: " + text,
     "user"
   );
 
-
   input.value = "";
-
 
   askJarvis(text);
 
 }
 
 
-sendBtn.onclick =
-  sendMessage;
+sendBtn.addEventListener(
+  "click",
+  sendMessage
+);
 
 
 input.addEventListener(
@@ -945,8 +529,59 @@ input.addEventListener(
 
 
 /* =========================================================
-   SPEECH RECOGNITION
-========================================================= */
+   10. CHAT MESSAGE
+   ========================================================= */
+
+function addMessage(text, type) {
+
+  const message =
+    document.createElement("div");
+
+  message.className =
+    "msg " + type;
+
+  message.innerText =
+    text;
+
+  chat.appendChild(message);
+
+  chat.scrollTop =
+    chat.scrollHeight;
+
+}
+
+
+/* =========================================================
+   11. QUICK ACTIONS
+   ========================================================= */
+
+document
+  .querySelectorAll(".quick-actions button")
+  .forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        const query =
+          button.dataset.query;
+
+        addMessage(
+          "YOU: " + query,
+          "user"
+        );
+
+        askJarvis(query);
+
+      }
+    );
+
+  });
+
+
+/* =========================================================
+   12. SPEECH RECOGNITION
+   ========================================================= */
 
 const SpeechRecognition =
   window.SpeechRecognition ||
@@ -961,141 +596,103 @@ if (SpeechRecognition) {
   recognition =
     new SpeechRecognition();
 
-
   recognition.lang =
     "en-US";
 
-
   recognition.continuous =
     false;
-
 
   recognition.interimResults =
     false;
 
 
-  recognition.onstart =
-    () => {
+  recognition.onstart = () => {
 
-      micBtn.classList.add(
-        "listening"
-      );
+    micBtn.innerText =
+      "🔴";
 
-      micBtn.innerText =
-        "⏺";
+    voiceStatus.innerText =
+      "LISTENING";
 
-      setStatus(
-        "LISTENING",
-        "I'm listening..."
-      );
-
-    };
+  };
 
 
-  recognition.onresult =
-    event => {
+  recognition.onresult = event => {
 
-      const text =
-        event
-          .results[0][0]
-          .transcript
-          .trim();
+    const text =
+      event.results[0][0].transcript;
 
+    input.value = text;
 
-      if (!text) return;
+    sendMessage();
 
-
-      addMessage(
-        "YOU: " + text,
-        "user"
-      );
+  };
 
 
-      askJarvis(text);
+  recognition.onerror = event => {
 
-    };
+    console.warn(
+      "Speech recognition:",
+      event.error
+    );
 
-
-  recognition.onerror =
-    event => {
-
-      console.error(
-        "Speech error:",
-        event.error
-      );
+  };
 
 
-      setStatus(
-        "ONLINE",
-        "Microphone error"
-      );
+  recognition.onend = () => {
 
-    };
+    micBtn.innerText =
+      "🎙️";
 
+    voiceStatus.innerText =
+      "READY";
 
-  recognition.onend =
-    () => {
-
-      micBtn.classList.remove(
-        "listening"
-      );
-
-      micBtn.innerText =
-        "🎙️";
+  };
 
 
-      if (
-        coreState.textContent ===
-        "LISTENING"
-      ) {
+  micBtn.onclick = () => {
 
-        setStatus(
-          "ONLINE",
-          "Systems operational"
-        );
+    try {
 
-      }
+      recognition.start();
 
-    };
+    } catch (error) {
 
+      console.warn(error);
 
-  micBtn.onclick =
-    () => {
+    }
 
-      try {
+  };
 
-        recognition.start();
+} else {
 
-      }
+  micBtn.disabled = true;
 
-      catch (error) {
-
-        console.log(error);
-
-      }
-
-    };
-
-
-  voiceStatus.textContent =
-    "READY";
-
-}
-
-else {
-
-  micBtn.disabled =
-    true;
-
-  voiceStatus.textContent =
-    "UNAVAILABLE";
+  micBtn.title =
+    "Speech recognition is not supported by this browser.";
 
 }
 
 
 /* =========================================================
-   TEXT TO SPEECH
-========================================================= */
+   13. TEXT TO SPEECH
+   ========================================================= */
+
+const voiceSelect =
+  document.getElementById("voice-select");
+
+const pitchSlider =
+  document.getElementById("pitch");
+
+const rateSlider =
+  document.getElementById("rate");
+
+const testVoice =
+  document.getElementById("test-voice");
+
+
+let voices = [];
+
 
 function loadVoices() {
 
@@ -1103,112 +700,69 @@ function loadVoices() {
     speechSynthesis.getVoices();
 
 
-  voiceSelect.innerHTML = "";
+  voiceSelect.innerHTML =
+    "";
 
 
-  if (!voices.length) {
-
-    const option =
-      document.createElement("option");
-
-    option.textContent =
-      "Default browser voice";
-
-    option.value = "";
-
-    voiceSelect.appendChild(
-      option
-    );
-
-    return;
-
-  }
-
-
-  const englishVoices =
-    voices.filter(
-      voice =>
-        voice.lang
-          .toLowerCase()
-          .startsWith("en")
-    );
-
-
-  const available =
-    englishVoices.length
-      ? englishVoices
-      : voices;
-
-
-  available.forEach(
-    (voice, index) => {
+  voices
+    .filter(voice =>
+      voice.lang.startsWith("en")
+    )
+    .forEach((voice, index) => {
 
       const option =
         document.createElement("option");
 
       option.value =
-        voices.indexOf(voice);
+        index;
 
       option.textContent =
         `${voice.name} (${voice.lang})`;
-
 
       voiceSelect.appendChild(
         option
       );
 
-    }
-  );
+    });
 
 
-  // Prefer an English male/deeper voice if available
-  const preferredIndex =
-    available.findIndex(
-      voice =>
-        /male|daniel|alex|david|george|guy|fred|arthur/i
-          .test(voice.name)
-    );
-
-
-  if (preferredIndex >= 0) {
-
-    voiceSelect.value =
-      voices.indexOf(
-        available[preferredIndex]
-      );
-
-  }
-
-
-  voiceStatus.textContent =
-    "READY";
+  voiceStatus.innerText =
+    voices.length
+      ? "READY"
+      : "WAITING";
 
 }
 
 
 loadVoices();
 
+speechSynthesis.onvoiceschanged =
+  loadVoices;
 
-if ("onvoiceschanged" in speechSynthesis) {
 
-  speechSynthesis.onvoiceschanged =
-    loadVoices;
+function getSelectedVoice() {
+
+  const englishVoices =
+    voices.filter(
+      voice =>
+        voice.lang.startsWith("en")
+    );
+
+
+  return englishVoices[
+    Number(voiceSelect.value)
+  ] || englishVoices[0];
 
 }
 
 
-/* =========================================================
-   JARVIS VOICE
-========================================================= */
-
 function speak(text) {
 
   if (
-    !("speechSynthesis" in window)
+    !window.speechSynthesis ||
+    !text
   ) {
-
     return;
-
   }
 
 
@@ -1222,48 +776,22 @@ function speak(text) {
 
 
   utterance.rate =
-    Number(rateControl.value);
-
+    Number(rateSlider.value);
 
   utterance.pitch =
-    Number(pitchControl.value);
+    Number(pitchSlider.value);
 
 
-  const selectedIndex =
-    Number(voiceSelect.value);
+  const voice =
+    getSelectedVoice();
 
 
-  if (
-    !Number.isNaN(selectedIndex) &&
-    voices[selectedIndex]
-  ) {
+  if (voice) {
 
     utterance.voice =
-      voices[selectedIndex];
+      voice;
 
   }
-
-
-  utterance.onstart =
-    () => {
-
-      setStatus(
-        "SPEAKING",
-        "J.A.R.V.I.S is speaking..."
-      );
-
-    };
-
-
-  utterance.onend =
-    () => {
-
-      setStatus(
-        "ONLINE",
-        "Systems operational"
-      );
-
-    };
 
 
   speechSynthesis.speak(
@@ -1273,38 +801,366 @@ function speak(text) {
 }
 
 
+testVoice.onclick = () => {
+
+  speak(
+    "Good day. J.A.R.V.I.S. systems are online. How may I assist you?"
+  );
+
+};
+
+
 /* =========================================================
-   TEST VOICE
-========================================================= */
+   14. MEMORY PANEL
+   ========================================================= */
 
-testVoiceBtn.onclick =
-  () => {
+const memoryPanel =
+  document.getElementById(
+    "memory-panel"
+  );
 
-    speak(
-      "Good evening. J.A.R.V.I.S systems are fully operational. How may I assist you?"
+const overlay =
+  document.getElementById(
+    "overlay"
+  );
+
+const memoryBtn =
+  document.getElementById(
+    "memory-btn"
+  );
+
+const closeMemory =
+  document.getElementById(
+    "close-memory"
+  );
+
+const memoryList =
+  document.getElementById(
+    "memory-list"
+  );
+
+const memorySearch =
+  document.getElementById(
+    "memory-search"
+  );
+
+
+function openMemoryPanel() {
+
+  memoryPanel.classList.add(
+    "open"
+  );
+
+  overlay.classList.add(
+    "open"
+  );
+
+  renderMemories();
+
+}
+
+
+function closeMemoryPanel() {
+
+  memoryPanel.classList.remove(
+    "open"
+  );
+
+  overlay.classList.remove(
+    "open"
+  );
+
+}
+
+
+memoryBtn.onclick =
+  openMemoryPanel;
+
+closeMemory.onclick =
+  closeMemoryPanel;
+
+overlay.onclick =
+  closeMemoryPanel;
+
+
+/* =========================================================
+   15. RENDER MEMORY
+   ========================================================= */
+
+async function renderMemories() {
+
+  const memories =
+    await getMemories();
+
+
+  const search =
+    memorySearch.value
+      .trim()
+      .toLowerCase();
+
+
+  memoryList.innerHTML =
+    "";
+
+
+  const filtered =
+    memories.filter(memory => {
+
+      if (!search) {
+        return true;
+      }
+
+      return (
+        memory.title
+          .toLowerCase()
+          .includes(search) ||
+
+        memory.text
+          .toLowerCase()
+          .includes(search)
+      );
+
+    });
+
+
+  if (!filtered.length) {
+
+    memoryList.innerHTML =
+      `<div class="msg system">
+        No memories found.
+      </div>`;
+
+    return;
+
+  }
+
+
+  filtered.forEach(memory => {
+
+    const card =
+      document.createElement(
+        "div"
+      );
+
+    card.className =
+      "memory-card";
+
+
+    const title =
+      document.createElement(
+        "div"
+      );
+
+    title.className =
+      "memory-card-title";
+
+    title.innerText =
+      memory.title;
+
+
+    const date =
+      document.createElement(
+        "div"
+      );
+
+    date.className =
+      "memory-card-date";
+
+    date.innerText =
+      new Date(
+        memory.created
+      ).toLocaleString();
+
+
+    const text =
+      document.createElement(
+        "div"
+      );
+
+    text.className =
+      "memory-card-text";
+
+    text.innerText =
+      memory.text;
+
+
+    const remove =
+      document.createElement(
+        "button"
+      );
+
+    remove.className =
+      "memory-delete";
+
+    remove.innerText =
+      "DELETE";
+
+
+    remove.onclick =
+      async () => {
+
+        await deleteMemory(
+          memory.id
+        );
+
+        renderMemories();
+
+      };
+
+
+    card.appendChild(title);
+    card.appendChild(date);
+    card.appendChild(text);
+    card.appendChild(remove);
+
+    memoryList.appendChild(card);
+
+  });
+
+}
+
+
+memorySearch.addEventListener(
+  "input",
+  renderMemories
+);
+
+
+/* =========================================================
+   16. SAVE CURRENT CHAT
+   ========================================================= */
+
+document
+  .getElementById("save-chat")
+  .onclick = async () => {
+
+    if (!conversation.length) {
+
+      alert(
+        "There is no conversation to save."
+      );
+
+      return;
+
+    }
+
+
+    const recent =
+      conversation.slice(-10);
+
+
+    const text =
+      recent
+        .map(item =>
+          `${item.role.toUpperCase()}: ${item.text}`
+        )
+        .join("\n\n");
+
+
+    await saveMemory(
+      "Conversation",
+      text
     );
+
+
+    memoryStatus.innerText =
+      "SAVED";
+
+
+    renderMemories();
+
+
+    setTimeout(() => {
+
+      memoryStatus.innerText =
+        "ONLINE";
+
+    }, 2000);
 
   };
 
 
 /* =========================================================
-   INITIAL MESSAGE
-========================================================= */
+   17. CLEAR MEMORY
+   ========================================================= */
 
-addMessage(
-  "J.A.R.V.I.S: System initialized. Memory systems online. How may I assist you?",
-  "ai"
-);
+document
+  .getElementById("clear-memory")
+  .onclick = async () => {
+
+    const confirmed =
+      confirm(
+        "Delete all J.A.R.V.I.S. memory?"
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    await clearMemory();
+
+    renderMemories();
+
+    memoryStatus.innerText =
+      "CLEARED";
+
+
+    setTimeout(() => {
+
+      memoryStatus.innerText =
+        "ONLINE";
+
+    }, 2000);
+
+  };
 
 
 /* =========================================================
-   INITIALIZE MEMORY
-========================================================= */
+   18. STARTUP
+   ========================================================= */
 
-loadMemories()
-  .catch(error =>
-    console.error(
-      "Memory initialization error:",
-      error
-    )
-  );
+async function initializeJarvis() {
+
+  try {
+
+    await openDatabase();
+
+    const memories =
+      await getMemories();
+
+    memoryStatus.innerText =
+      "ONLINE";
+
+    addMessage(
+      "J.A.R.V.I.S: Systems initialized. Web intelligence, memory and voice systems online. How may I assist you?",
+      "ai"
+    );
+
+
+    if (memories.length) {
+
+      addMessage(
+        `J.A.R.V.I.S: ${memories.length} stored memories detected.`,
+        "system"
+      );
+
+    }
+
+  } catch (error) {
+
+    memoryStatus.innerText =
+      "ERROR";
+
+    addMessage(
+      "J.A.R.V.I.S: Memory system unavailable.",
+      "system"
+    );
+
+  }
+
+}
+
+
+initializeJarvis();
