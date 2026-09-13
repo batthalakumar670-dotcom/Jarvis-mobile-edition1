@@ -1,1 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#020607">
 
+  <title>J.A.R.V.I.S — Mobile AI</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div>
+      <div class="brand">J.A.R.V.I.S</div>
+      <div class="subtitle">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
+    </div>
+
+    <button id="memory-toggle" class="icon-btn" title="Open memory">
+      🧠
+    </button>
+  </header>
+
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- AI CORE -->
+    <section class="core-section">
+
+      <div class="core">
+
+        <div class="orbit orbit-1"></div>
+        <div class="orbit orbit-2"></div>
+        <div class="orbit orbit-3"></div>
+
+        <div class="core-glow"></div>
+
+        <div class="core-center">
+          <span id="core-state">ONLINE</span>
+        </div>
+
+      </div>
+
+      <div class="core-title">J.A.R.V.I.S</div>
+      <div id="status-text" class="status-text">
+        Systems operational
+      </div>
+
+    </section>
+
+
+    <!-- STATUS -->
+    <section class="status-panel">
+
+      <div class="status-item">
+        <span>AI CORE</span>
+        <strong class="online">ONLINE</strong>
+      </div>
+
+      <div class="status-item">
+        <span>NETWORK</span>
+        <strong class="online">ONLINE</strong>
+      </div>
+
+      <div class="status-item">
+        <span>MEMORY</span>
+        <strong id="memory-status" class="online">READY</strong>
+      </div>
+
+      <div class="status-item">
+        <span>VOICE</span>
+        <strong id="voice-status" class="online">READY</strong>
+      </div>
+
+    </section>
+
+
+    <!-- CHAT -->
+    <section class="chat-wrapper">
+
+      <div id="chat" class="chat"></div>
+
+    </section>
+
+
+    <!-- INPUT -->
+    <section class="input-section">
+
+      <button
+        id="mic-btn"
+        class="round-btn"
+        type="button"
+        title="Voice input"
+      >
+        🎙️
+      </button>
+
+      <input
+        id="msg"
+        type="text"
+        placeholder="Ask J.A.R.V.I.S..."
+        autocomplete="off"
+      >
+
+      <button
+        id="send"
+        class="send-btn"
+        type="button"
+      >
+        ➤
+      </button>
+
+    </section>
+
+
+    <!-- VOICE SETTINGS -->
+    <section class="voice-settings">
+
+      <div class="settings-title">
+        🔊 J.A.R.V.I.S VOICE
+      </div>
+
+      <select id="voice-select">
+        <option value="">Loading voices...</option>
+      </select>
+
+      <div class="voice-controls">
+
+        <label>
+          Pitch
+          <input
+            id="pitch"
+            type="range"
+            min="0.4"
+            max="1.4"
+            step="0.05"
+            value="0.72"
+          >
+        </label>
+
+        <label>
+          Speed
+          <input
+            id="rate"
+            type="range"
+            min="0.7"
+            max="1.2"
+            step="0.05"
+            value="0.92"
+          >
+        </label>
+
+      </div>
+
+      <button id="test-voice" class="test-btn">
+        TEST J.A.R.V.I.S VOICE
+      </button>
+
+    </section>
+
+  </main>
+
+
+  <!-- MEMORY DRAWER -->
+  <aside id="memory-panel" class="memory-panel">
+
+    <div class="memory-header">
+
+      <div>
+        <div class="memory-title">J.A.R.V.I.S MEMORY</div>
+        <div id="memory-count">0 memories</div>
+      </div>
+
+      <button id="memory-close" class="close-btn">
+        ✕
+      </button>
+
+    </div>
+
+
+    <!-- SEARCH -->
+    <input
+      id="memory-search"
+      class="memory-search"
+      type="text"
+      placeholder="Search memory..."
+    >
+
+
+    <!-- MEMORY LIST -->
+    <div id="memory-list" class="memory-list"></div>
+
+
+    <!-- ACTIONS -->
+    <div class="memory-actions">
+
+      <button id="save-memory">
+        + SAVE CURRENT CHAT
+      </button>
+
+      <button id="clear-memory" class="danger">
+        CLEAR MEMORY
+      </button>
+
+    </div>
+
+  </aside>
+
+
+  <!-- OVERLAY -->
+  <div id="overlay" class="overlay"></div>
+
+
+  <script src="script.js"></script>
+
+</body>
+</html>
