@@ -2,93 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#020607">
 
-  <title>J.A.R.V.I.S.</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-  <link
-    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet"
-  >
+  <title>J.A.R.V.I.S — Mobile AI</title>
 
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <div class="scanlines"></div>
-
   <!-- TOP BAR -->
   <header class="topbar">
-
     <div>
-      <div class="brand">J.A.R.V.I.S.</div>
+      <div class="brand">J.A.R.V.I.S</div>
       <div class="subtitle">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
     </div>
 
-    <button id="memory-btn" class="icon-btn" title="Memory">
+    <button id="memory-toggle" class="icon-btn" title="Open memory">
       🧠
     </button>
-
   </header>
 
 
-  <!-- SYSTEM CORE -->
-  <main>
+  <!-- MAIN -->
+  <main class="main">
 
+    <!-- AI CORE -->
     <section class="core-section">
 
       <div class="core">
 
-        <div class="orbit orbit1"></div>
-        <div class="orbit orbit2"></div>
-        <div class="orbit orbit3"></div>
+        <div class="orbit orbit-1"></div>
+        <div class="orbit orbit-2"></div>
+        <div class="orbit orbit-3"></div>
+
+        <div class="core-glow"></div>
 
         <div class="core-center">
-          <div class="core-letter">J</div>
-          <div class="core-status">ONLINE</div>
+          <span id="core-state">ONLINE</span>
         </div>
 
       </div>
 
-      <div id="system-state" class="system-state">
-        SYSTEM READY
+      <div class="core-title">J.A.R.V.I.S</div>
+      <div id="status-text" class="status-text">
+        Systems operational
       </div>
 
     </section>
 
 
     <!-- STATUS -->
-    <section class="status-grid">
+    <section class="status-panel">
 
-      <div class="status-card">
+      <div class="status-item">
         <span>AI CORE</span>
-        <strong id="ai-status">ONLINE</strong>
+        <strong class="online">ONLINE</strong>
       </div>
 
-      <div class="status-card">
+      <div class="status-item">
         <span>NETWORK</span>
-        <strong id="network-status">READY</strong>
+        <strong class="online">ONLINE</strong>
       </div>
 
-      <div class="status-card">
+      <div class="status-item">
         <span>MEMORY</span>
-        <strong id="memory-status">ONLINE</strong>
+        <strong id="memory-status" class="online">READY</strong>
       </div>
 
-      <div class="status-card">
+      <div class="status-item">
         <span>VOICE</span>
-        <strong id="voice-status">READY</strong>
+        <strong id="voice-status" class="online">READY</strong>
       </div>
 
     </section>
 
 
     <!-- CHAT -->
-    <section class="chat-container">
+    <section class="chat-wrapper">
 
       <div id="chat" class="chat"></div>
 
@@ -98,84 +90,74 @@
     <!-- INPUT -->
     <section class="input-section">
 
-      <button id="mic-btn" class="action-btn">
+      <button
+        id="mic-btn"
+        class="round-btn"
+        type="button"
+        title="Voice input"
+      >
         🎙️
       </button>
 
       <input
         id="msg"
         type="text"
-        autocomplete="off"
         placeholder="Ask J.A.R.V.I.S..."
+        autocomplete="off"
       >
 
-      <button id="send" class="send-btn">
+      <button
+        id="send"
+        class="send-btn"
+        type="button"
+      >
         ➤
       </button>
 
     </section>
 
 
-    <!-- QUICK ACTIONS -->
-    <section class="quick-actions">
-
-      <button data-query="Tell me today's Indian stock market update. Include NIFTY 50, SENSEX, major gainers, losers and important market news.">
-        📈 STOCKS
-      </button>
-
-      <button data-query="What are the latest important AI news and developments today?">
-        🤖 AI NEWS
-      </button>
-
-      <button data-query="What are the major world news headlines today?">
-        📰 NEWS
-      </button>
-
-      <button data-query="Search the web for the latest technology news today.">
-        🌐 WEB
-      </button>
-
-    </section>
-
-
     <!-- VOICE SETTINGS -->
-    <section class="settings">
+    <section class="voice-settings">
 
       <div class="settings-title">
-        VOICE CONTROL
+        🔊 J.A.R.V.I.S VOICE
       </div>
 
-      <label>
-        Voice
-        <select id="voice-select"></select>
-      </label>
+      <select id="voice-select">
+        <option value="">Loading voices...</option>
+      </select>
 
-      <label>
-        Pitch
-        <input
-          id="pitch"
-          type="range"
-          min="0.4"
-          max="1.5"
-          value="0.72"
-          step="0.01"
-        >
-      </label>
+      <div class="voice-controls">
 
-      <label>
-        Speed
-        <input
-          id="rate"
-          type="range"
-          min="0.6"
-          max="1.4"
-          value="0.92"
-          step="0.01"
-        >
-      </label>
+        <label>
+          Pitch
+          <input
+            id="pitch"
+            type="range"
+            min="0.4"
+            max="1.4"
+            step="0.05"
+            value="0.72"
+          >
+        </label>
+
+        <label>
+          Speed
+          <input
+            id="rate"
+            type="range"
+            min="0.7"
+            max="1.2"
+            step="0.05"
+            value="0.92"
+          >
+        </label>
+
+      </div>
 
       <button id="test-voice" class="test-btn">
-        TEST VOICE
+        TEST J.A.R.V.I.S VOICE
       </button>
 
     </section>
@@ -183,42 +165,53 @@
   </main>
 
 
-  <!-- MEMORY PANEL -->
+  <!-- MEMORY DRAWER -->
   <aside id="memory-panel" class="memory-panel">
 
     <div class="memory-header">
 
       <div>
-        <div class="memory-title">J.A.R.V.I.S. MEMORY</div>
-        <div class="memory-subtitle">
-          Persistent local memory
-        </div>
+        <div class="memory-title">J.A.R.V.I.S MEMORY</div>
+        <div id="memory-count">0 memories</div>
       </div>
 
-      <button id="close-memory" class="close-btn">
+      <button id="memory-close" class="close-btn">
         ✕
       </button>
 
     </div>
 
+
+    <!-- SEARCH -->
     <input
       id="memory-search"
       class="memory-search"
+      type="text"
       placeholder="Search memory..."
     >
 
+
+    <!-- MEMORY LIST -->
     <div id="memory-list" class="memory-list"></div>
 
-    <button id="save-chat" class="memory-action">
-      SAVE CURRENT CHAT
-    </button>
 
-    <button id="clear-memory" class="memory-action danger">
-      CLEAR MEMORY
-    </button>
+    <!-- ACTIONS -->
+    <div class="memory-actions">
+
+      <button id="save-memory">
+        + SAVE CURRENT CHAT
+      </button>
+
+      <button id="clear-memory" class="danger">
+        CLEAR MEMORY
+      </button>
+
+    </div>
 
   </aside>
 
+
+  <!-- OVERLAY -->
   <div id="overlay" class="overlay"></div>
 
 
