@@ -2,162 +2,364 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#020607">
 
-  <title>J.A.R.V.I.S — Mobile AI</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
+
+  <meta name="theme-color" content="#02070b">
+
+  <title>J.A.R.V.I.S.</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  >
 
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
+  <!-- BACKGROUND -->
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="ambient ambient-three"></div>
+
+  <div class="grid"></div>
+  <div class="scanlines"></div>
+
   <!-- TOP BAR -->
   <header class="topbar">
-    <div>
-      <div class="brand">J.A.R.V.I.S</div>
-      <div class="subtitle">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
+
+    <div class="brand">
+
+      <div class="brand-mark">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+
+      <div>
+        <div class="brand-title">J.A.R.V.I.S.</div>
+        <div class="brand-subtitle">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
+      </div>
+
     </div>
 
-    <button id="memory-toggle" class="icon-btn" title="Open memory">
-      🧠
+    <button id="memoryBtn" class="memory-button" aria-label="Open memory">
+
+      <svg class="ui-icon" viewBox="0 0 24 24">
+        <path d="M9 3a4 4 0 0 0-4 4v1a4 4 0 0 0 0 8v1a4 4 0 0 0 4 4"/>
+        <path d="M15 3a4 4 0 0 1 4 4v1a4 4 0 0 1 0 8v1a4 4 0 0 1-4 4"/>
+        <path d="M9 7a3 3 0 0 1 6 0v10a3 3 0 0 1-6 0z"/>
+        <path d="M5 11h4M15 11h4M5 15h4M15 15h4"/>
+      </svg>
+
     </button>
+
   </header>
 
 
   <!-- MAIN -->
-  <main class="main">
+  <main class="main-container">
 
-    <!-- AI CORE -->
-    <section class="core-section">
+    <!-- HERO -->
+    <section class="hero">
 
-      <div class="core">
+      <div class="reactor">
 
-        <div class="orbit orbit-1"></div>
-        <div class="orbit orbit-2"></div>
-        <div class="orbit orbit-3"></div>
+        <div class="orbit orbit-one">
+          <div class="orbit-dot"></div>
+        </div>
 
-        <div class="core-glow"></div>
+        <div class="orbit orbit-two">
+          <div class="orbit-dot"></div>
+        </div>
 
-        <div class="core-center">
-          <span id="core-state">ONLINE</span>
+        <div class="orbit orbit-three">
+          <div class="orbit-dot"></div>
+        </div>
+
+        <div class="core-scanner"></div>
+
+        <div class="core">
+
+          <div class="core-inner">
+            <div class="core-letter">J</div>
+          </div>
+
+          <div class="core-ring"></div>
+          <div class="core-ring ring-two"></div>
+
         </div>
 
       </div>
 
-      <div class="core-title">J.A.R.V.I.S</div>
-      <div id="status-text" class="status-text">
-        Systems operational
+      <div class="system-title">
+        <span>SYSTEM</span>
+        <strong>ONLINE</strong>
+      </div>
+
+      <div class="system-subtitle">
+        NEURAL CORE INITIALIZED
       </div>
 
     </section>
 
 
     <!-- STATUS -->
-    <section class="status-panel">
+    <section class="status-grid">
 
-      <div class="status-item">
-        <span>AI CORE</span>
-        <strong class="online">ONLINE</strong>
+      <div class="status-card">
+
+        <div class="status-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2l8 4v12l-8 4-8-4V6z"/>
+            <path d="M12 6l4 2v8l-4 2-4-2V8z"/>
+            <path d="M12 9v6"/>
+          </svg>
+        </div>
+
+        <div>
+          <small>AI CORE</small>
+          <strong id="aiStatus">READY</strong>
+        </div>
+
       </div>
 
-      <div class="status-item">
-        <span>NETWORK</span>
-        <strong class="online">ONLINE</strong>
+
+      <div class="status-card">
+
+        <div class="status-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M5 12a7 7 0 0 1 14 0"/>
+            <path d="M2 12a10 10 0 0 1 20 0"/>
+            <circle cx="12" cy="12" r="2"/>
+          </svg>
+        </div>
+
+        <div>
+          <small>NETWORK</small>
+          <strong id="networkStatus">ONLINE</strong>
+        </div>
+
       </div>
 
-      <div class="status-item">
-        <span>MEMORY</span>
-        <strong id="memory-status" class="online">READY</strong>
+
+      <div class="status-card">
+
+        <div class="status-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M7 4h10v16H7z"/>
+            <path d="M9 7h6M9 11h6M9 15h4"/>
+          </svg>
+        </div>
+
+        <div>
+          <small>MEMORY</small>
+          <strong id="memoryStatus">ACTIVE</strong>
+        </div>
+
       </div>
 
-      <div class="status-item">
-        <span>VOICE</span>
-        <strong id="voice-status" class="online">READY</strong>
+
+      <div class="status-card">
+
+        <div class="status-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 14a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v4a4 4 0 0 0 4 4z"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <path d="M12 17v4"/>
+            <path d="M8 21h8"/>
+          </svg>
+        </div>
+
+        <div>
+          <small>VOICE</small>
+          <strong id="voiceStatus">READY</strong>
+        </div>
+
       </div>
 
     </section>
 
 
     <!-- CHAT -->
-    <section class="chat-wrapper">
+    <section class="chat-panel">
 
-      <div id="chat" class="chat"></div>
+      <div class="chat-header">
 
-    </section>
+        <div class="console-indicator">
+          <span></span>
+          CONSOLE
+        </div>
+
+        <div class="chat-state">
+          SECURE CHANNEL
+        </div>
+
+      </div>
 
 
-    <!-- INPUT -->
-    <section class="input-section">
+      <div id="chatBox" class="chat-box">
 
-      <button
-        id="mic-btn"
-        class="round-btn"
-        type="button"
-        title="Voice input"
-      >
-        🎙️
-      </button>
+        <div class="message jarvis-message">
 
-      <input
-        id="msg"
-        type="text"
-        placeholder="Ask J.A.R.V.I.S..."
-        autocomplete="off"
-      >
+          <div class="message-label">
+            J.A.R.V.I.S.
+          </div>
 
-      <button
-        id="send"
-        class="send-btn"
-        type="button"
-      >
-        ➤
-      </button>
+          <div class="message-text">
+            Good evening. Systems are online. How may I assist you?
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- COMMAND BAR -->
+      <div class="command-area">
+
+        <button
+          id="micBtn"
+          class="mic-button"
+          aria-label="Voice input"
+        >
+
+          <span class="mic-ring"></span>
+
+          <svg viewBox="0 0 24 24">
+            <path d="M12 14a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v4a4 4 0 0 0 4 4z"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <path d="M12 17v4"/>
+          </svg>
+
+        </button>
+
+
+        <input
+          id="userInput"
+          type="text"
+          autocomplete="off"
+          placeholder="Enter command..."
+        >
+
+
+        <button
+          id="sendBtn"
+          class="send-button"
+          aria-label="Send"
+        >
+
+          <svg viewBox="0 0 24 24">
+            <path d="M3 11.5L21 3l-4.5 18-5-7-8.5-2.5z"/>
+            <path d="M11.5 14L21 3"/>
+          </svg>
+
+        </button>
+
+      </div>
+
+
+      <!-- QUICK COMMANDS -->
+      <div class="quick-section">
+
+        <div class="section-label">
+          QUICK COMMANDS
+        </div>
+
+        <div class="quick-buttons">
+
+          <button data-command="Give me an interesting AI fact">
+            AI
+          </button>
+
+          <button data-command="Give me a stock market overview">
+            MARKET
+          </button>
+
+          <button data-command="Tell me the latest technology news">
+            TECH NEWS
+          </button>
+
+          <button data-command="Surprise me with something interesting">
+            SURPRISE ME
+          </button>
+
+        </div>
+
+      </div>
 
     </section>
 
 
     <!-- VOICE SETTINGS -->
-    <section class="voice-settings">
+    <section class="voice-panel">
 
-      <div class="settings-title">
-        🔊 J.A.R.V.I.S VOICE
+      <div class="panel-heading">
+        <span>VOICE PROTOCOL</span>
       </div>
 
-      <select id="voice-select">
-        <option value="">Loading voices...</option>
-      </select>
 
-      <div class="voice-controls">
+      <div class="voice-row">
 
-        <label>
-          Pitch
-          <input
-            id="pitch"
-            type="range"
-            min="0.4"
-            max="1.4"
-            step="0.05"
-            value="0.72"
-          >
+        <label for="voiceSelect">
+          VOICE
         </label>
 
-        <label>
-          Speed
-          <input
-            id="rate"
-            type="range"
-            min="0.7"
-            max="1.2"
-            step="0.05"
-            value="0.92"
-          >
-        </label>
+        <select id="voiceSelect">
+          <option value="">Default Voice</option>
+        </select>
 
       </div>
 
-      <button id="test-voice" class="test-btn">
-        TEST J.A.R.V.I.S VOICE
+
+      <div class="slider-row">
+
+        <label>
+          PITCH
+          <span id="pitchValue">1.0</span>
+        </label>
+
+        <input
+          id="pitchSlider"
+          type="range"
+          min="0.5"
+          max="2"
+          step="0.1"
+          value="1"
+        >
+
+      </div>
+
+
+      <div class="slider-row">
+
+        <label>
+          RATE
+          <span id="rateValue">1.0</span>
+        </label>
+
+        <input
+          id="rateSlider"
+          type="range"
+          min="0.5"
+          max="2"
+          step="0.1"
+          value="1"
+        >
+
+      </div>
+
+
+      <button id="testVoice" class="test-voice">
+        TEST VOICE
       </button>
 
     </section>
@@ -166,43 +368,44 @@
 
 
   <!-- MEMORY DRAWER -->
-  <aside id="memory-panel" class="memory-panel">
+  <aside id="memoryDrawer" class="memory-drawer">
 
-    <div class="memory-header">
+    <div class="drawer-header">
 
       <div>
-        <div class="memory-title">J.A.R.V.I.S MEMORY</div>
-        <div id="memory-count">0 memories</div>
+        <small>J.A.R.V.I.S.</small>
+        <h2>MEMORY CORE</h2>
       </div>
 
-      <button id="memory-close" class="close-btn">
-        ✕
+      <button id="closeMemory" class="close-button">
+        ×
       </button>
 
     </div>
 
 
-    <!-- SEARCH -->
     <input
-      id="memory-search"
+      id="memorySearch"
       class="memory-search"
       type="text"
       placeholder="Search memory..."
     >
 
 
-    <!-- MEMORY LIST -->
-    <div id="memory-list" class="memory-list"></div>
+    <div id="memoryList" class="memory-list">
+      <div class="empty-memory">
+        No stored memories.
+      </div>
+    </div>
 
 
-    <!-- ACTIONS -->
     <div class="memory-actions">
 
-      <button id="save-memory">
-        + SAVE CURRENT CHAT
+      <button id="saveChat">
+        SAVE CURRENT CHAT
       </button>
 
-      <button id="clear-memory" class="danger">
+      <button id="clearMemory">
         CLEAR MEMORY
       </button>
 
@@ -211,11 +414,11 @@
   </aside>
 
 
-  <!-- OVERLAY -->
-  <div id="overlay" class="overlay"></div>
+  <div id="drawerOverlay" class="drawer-overlay"></div>
 
 
+  <!-- JS -->
   <script src="script.js"></script>
 
 </body>
-</html>
+          </html>
