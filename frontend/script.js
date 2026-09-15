@@ -1,9 +1,6 @@
 /* =========================================================
    J.A.R.V.I.S. MOBILE EDITION
-   FRONTEND ENGINE v3.0
-
-   Gemini API is NOT stored here.
-   All AI requests go through the Render backend.
+   FRONTEND ENGINE v4.0
    ========================================================= */
 
 "use strict";
@@ -12,7 +9,9 @@
    BACKEND
    ========================================================= */
 
-const BACKEND_URL = "https://jarvis-backend-wwpa.onrender.com";
+const BACKEND_URL =
+    "https://jarvis-backend-wwpa.onrender.com";
+
 
 /* =========================================================
    STATE
@@ -20,107 +19,150 @@ const BACKEND_URL = "https://jarvis-backend-wwpa.onrender.com";
 
 let conversation = [];
 let isSending = false;
-let isListening = false;
 let recognition = null;
-let currentVoices = [];
+let isListening = false;
+let voices = [];
+
 
 /* =========================================================
-   DOM HELPER
+   DOM
    ========================================================= */
 
-function $(id) {
-    return document.getElementById(id);
-}
+const chatBox =
+    document.getElementById("chatBox");
+
+const userInput =
+    document.getElementById("userInput");
+
+const sendBtn =
+    document.getElementById("sendBtn");
+
+const micBtn =
+    document.getElementById("micBtn");
+
+const aiStatus =
+    document.getElementById("aiStatus");
+
+const networkStatus =
+    document.getElementById("networkStatus");
+
+const memoryStatus =
+    document.getElementById("memoryStatus");
+
+const voiceStatus =
+    document.getElementById("voiceStatus");
+
+const voiceProtocolState =
+    document.getElementById("voiceProtocolState");
+
 
 /* =========================================================
-   MAIN ELEMENTS
+   START
    ========================================================= */
 
-const chatBox = $("chatBox");
-const userInput = $("userInput");
-const sendBtn = $("sendBtn");
-const micBtn = $("micBtn");
+function startJarvis() {
 
-const aiStatus = $("aiStatus");
-const networkStatus = $("networkStatus");
-const memoryStatus = $("memoryStatus");
-const voiceStatus = $("voiceStatus");
+    console.log(
+        "J.A.R.V.I.S. starting..."
+    );
 
-/* =========================================================
-   INITIALIZATION
-   ========================================================= */
+    console.log(
+        "Send button:",
+        sendBtn
+    );
 
-document.addEventListener("DOMContentLoaded", () => {
-    initializeJarvis();
-});
+    console.log(
+        "Input:",
+        userInput
+    );
 
-/*
-   This also runs immediately if this script is loaded
-   after the HTML has already loaded.
-*/
-if (document.readyState !== "loading") {
-    initializeJarvis();
-}
+    console.log(
+        "Chat:",
+        chatBox
+    );
 
-let initialized = false;
+    setupSend();
 
-function initializeJarvis() {
-    if (initialized) return;
-    initialized = true;
-
-    console.log("J.A.R.V.I.S. frontend starting...");
-
-    setupSendButton();
     setupInput();
+
     setupQuickCommands();
-    setupVoiceRecognition();
-    setupSpeechSynthesis();
+
+    setupVoice();
+
+    setupSpeech();
+
     setupMemory();
+
     checkBackend();
 
-    console.log("J.A.R.V.I.S. frontend ready.");
 }
+
 
 /* =========================================================
    SEND BUTTON
    ========================================================= */
 
-function setupSendButton() {
+function setupSend() {
 
     if (!sendBtn) {
-        console.warn("Send button not found.");
+
+        console.error(
+            "ERROR: sendBtn not found."
+        );
+
         return;
     }
 
-    sendBtn.addEventListener("click", function(event) {
-        event.preventDefault();
-        sendMessage();
-    });
+    sendBtn.addEventListener(
+        "click",
+        function(event) {
+
+            event.preventDefault();
+
+            console.log(
+                "SEND BUTTON CLICKED"
+            );
+
+            sendMessage();
+
+        }
+    );
 }
 
+
 /* =========================================================
-   TEXT INPUT
+   INPUT
    ========================================================= */
 
 function setupInput() {
 
     if (!userInput) {
-        console.warn("User input not found.");
+
+        console.error(
+            "ERROR: userInput not found."
+        );
+
         return;
     }
 
-    userInput.addEventListener("keydown", function(event) {
+    userInput.addEventListener(
+        "keydown",
+        function(event) {
 
-        /*
-           Enter = send
-           Shift + Enter = new line
-        */
-        if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            sendMessage();
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+
+                event.preventDefault();
+
+                sendMessage();
+            }
+
         }
-    });
+    );
 }
+
 
 /* =========================================================
    SEND MESSAGE
@@ -128,394 +170,575 @@ function setupInput() {
 
 async function sendMessage() {
 
-    if (isSending) return;
+    if (isSending) {
+
+        console.log(
+            "Already processing message."
+        );
+
+        return;
+    }
 
     if (!userInput) {
-        console.error("userInput element missing.");
+
+        console.error(
+            "Input element missing."
+        );
+
         return;
     }
 
-    const message = userInput.value.trim();
+    const message =
+        userInput.value.trim();
 
     if (!message) {
+
+        console.log(
+            "Empty message."
+        );
+
         return;
     }
+
+    console.log(
+        "USER MESSAGE:",
+        message
+    );
 
     isSending = true;
 
-    /*
-       Get message before clearing input.
-    */
     userInput.value = "";
 
-    /*
-       Show user message.
-    */
-    addMessage(message, "user");
+    addMessage(
+        message,
+        "user"
+    );
 
-    /*
-       Show thinking message.
-    */
-    const thinkingElement = addThinkingMessage();
+    const thinking =
+        addThinking();
 
-    setSendingState(true);
+    setButtonLoading(true);
+
 
     try {
 
-        console.log("Sending message to J.A.R.V.I.S. backend...");
+        setStatus(
+            networkStatus,
+            "CONNECTING"
+        );
 
-        const response = await fetch(`${BACKEND_URL}/api/chat`, {
-            method: "POST",
+        console.log(
+            "Connecting to:",
+            `${BACKEND_URL}/api/chat`
+        );
 
-            headers: {
-                "Content-Type": "application/json"
-            },
 
-            body: JSON.stringify({
-                message: message,
-                context: buildContext()
-            })
-        });
+        const response =
+            await fetch(
+                `${BACKEND_URL}/api/chat`,
+                {
+                    method: "POST",
 
-        console.log("Backend response:", response.status);
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
 
-        /*
-           Try to read JSON.
-        */
-        let data = null;
+                    body: JSON.stringify({
+                        message: message,
+
+                        context:
+                            getContext()
+                    })
+                }
+            );
+
+
+        console.log(
+            "HTTP STATUS:",
+            response.status
+        );
+
+
+        let data;
 
         try {
-            data = await response.json();
+
+            data =
+                await response.json();
+
         } catch (jsonError) {
+
             throw new Error(
-                `Backend returned an invalid response (${response.status}).`
+                "The backend returned an invalid response."
             );
         }
 
-        console.log("Backend data:", data);
 
-        /*
-           Remove thinking indicator.
-        */
-        removeThinkingMessage(thinkingElement);
+        console.log(
+            "BACKEND RESPONSE:",
+            data
+        );
 
-        /*
-           Backend error.
-        */
+
+        removeThinking(thinking);
+
+
         if (!response.ok) {
 
-            const errorMessage =
+            const error =
                 data?.error ||
-                `Backend error: ${response.status}`;
+                `Server error ${response.status}`;
 
             addMessage(
-                `⚠️ ${errorMessage}`,
+                `⚠️ ${error}`,
                 "assistant",
                 true
             );
 
-            speak(
-                "I encountered a backend error. Please try again."
+            setStatus(
+                networkStatus,
+                "ONLINE"
             );
 
             return;
         }
 
-        /*
-           Successful response.
-        */
-        if (data && data.reply) {
 
-            const reply = String(data.reply).trim();
-
-            addMessage(reply, "assistant");
-
-            /*
-               Save conversation.
-            */
-            conversation.push({
-                role: "user",
-                content: message
-            });
-
-            conversation.push({
-                role: "assistant",
-                content: reply
-            });
-
-            saveConversation();
-
-            /*
-               Voice output.
-            */
-            speak(reply);
-
-        } else {
+        if (
+            !data ||
+            !data.reply
+        ) {
 
             addMessage(
-                "⚠️ J.A.R.V.I.S. received an empty response.",
+                "⚠️ J.A.R.V.I.S. returned no reply.",
                 "assistant",
                 true
             );
+
+            return;
         }
+
+
+        const reply =
+            String(data.reply).trim();
+
+
+        addMessage(
+            reply,
+            "assistant"
+        );
+
+
+        conversation.push({
+            role: "user",
+            content: message
+        });
+
+
+        conversation.push({
+            role: "assistant",
+            content: reply
+        });
+
+
+        saveConversation();
+
+
+        setStatus(
+            networkStatus,
+            "ONLINE"
+        );
+
+        setStatus(
+            aiStatus,
+            "READY"
+        );
+
+
+        speak(reply);
+
 
     } catch (error) {
 
-        console.error("J.A.R.V.I.S. request failed:", error);
+        console.error(
+            "J.A.R.V.I.S. ERROR:",
+            error
+        );
 
-        removeThinkingMessage(thinkingElement);
 
-        let messageText =
-            "⚠️ I could not connect to the J.A.R.V.I.S. backend.";
+        removeThinking(thinking);
 
-        if (error && error.message) {
-            messageText += `\n\n${error.message}`;
-        }
 
         addMessage(
-            messageText,
+            "⚠️ Connection error.\n\n" +
+            error.message,
             "assistant",
             true
         );
 
-        /*
-           Update network status.
-        */
-        setStatus(networkStatus, "OFFLINE");
+
+        setStatus(
+            networkStatus,
+            "OFFLINE"
+        );
 
     } finally {
 
         isSending = false;
-        setSendingState(false);
 
-        /*
-           Put cursor back in input.
-        */
+        setButtonLoading(false);
+
         if (userInput) {
             userInput.focus();
         }
+
     }
 }
+
 
 /* =========================================================
    ADD MESSAGE
    ========================================================= */
 
-function addMessage(text, sender = "assistant", isError = false) {
+function addMessage(
+    text,
+    sender,
+    isError = false
+) {
 
     if (!chatBox) {
-        console.error("chatBox element missing.");
+
+        console.error(
+            "chatBox not found."
+        );
+
         return null;
     }
 
-    const messageWrapper = document.createElement("div");
 
-    messageWrapper.className =
-        sender === "user"
-            ? "message user-message"
-            : "message assistant-message";
+    const message =
+        document.createElement("div");
+
+
+    message.className =
+        "message " +
+        (
+            sender === "user"
+                ? "user-message"
+                : "assistant-message"
+        );
+
 
     if (isError) {
-        messageWrapper.classList.add("error-message");
+        message.classList.add(
+            "error-message"
+        );
     }
 
-    const messageContent = document.createElement("div");
 
-    messageContent.className = "message-content";
+    const content =
+        document.createElement("div");
+
+
+    content.className =
+        "message-content";
+
+
+    content.textContent =
+        String(text);
+
 
     /*
-       Preserve line breaks safely.
+       Convert newline characters to <br>
+       without using unsafe HTML.
     */
-    const lines = String(text).split("\n");
 
-    lines.forEach((line, index) => {
+    const lines =
+        String(text).split("\n");
 
-        const span = document.createElement("span");
 
-        span.textContent = line;
+    content.textContent = "";
 
-        messageContent.appendChild(span);
 
-        if (index < lines.length - 1) {
-            messageContent.appendChild(
-                document.createElement("br")
+    lines.forEach(
+        (line, index) => {
+
+            content.appendChild(
+                document.createTextNode(line)
             );
+
+            if (
+                index <
+                lines.length - 1
+            ) {
+
+                content.appendChild(
+                    document.createElement("br")
+                );
+
+            }
+
         }
-    });
+    );
 
-    messageWrapper.appendChild(messageContent);
 
-    chatBox.appendChild(messageWrapper);
+    message.appendChild(content);
 
-    scrollChatToBottom();
+    chatBox.appendChild(message);
 
-    return messageWrapper;
+    scrollChat();
+
+    return message;
 }
 
+
 /* =========================================================
-   THINKING MESSAGE
+   THINKING
    ========================================================= */
 
-function addThinkingMessage() {
+function addThinking() {
 
     if (!chatBox) return null;
 
-    const wrapper = document.createElement("div");
 
-    wrapper.className =
+    const message =
+        document.createElement("div");
+
+
+    message.className =
         "message assistant-message jarvis-thinking";
 
-    const content = document.createElement("div");
 
-    content.className = "message-content";
+    const content =
+        document.createElement("div");
 
-    content.innerHTML =
-        "J.A.R.V.I.S. is thinking<span class=\"thinking-dots\">...</span>";
 
-    wrapper.appendChild(content);
+    content.className =
+        "message-content";
 
-    chatBox.appendChild(wrapper);
 
-    scrollChatToBottom();
+    content.textContent =
+        "J.A.R.V.I.S. is thinking...";
 
-    return wrapper;
+
+    message.appendChild(content);
+
+    chatBox.appendChild(message);
+
+    scrollChat();
+
+    return message;
 }
 
+
 /* =========================================================
-   REMOVE THINKING MESSAGE
+   REMOVE THINKING
    ========================================================= */
 
-function removeThinkingMessage(element) {
+function removeThinking(element) {
 
-    if (!element) return;
+    if (
+        element &&
+        element.parentNode
+    ) {
 
-    if (element.parentNode) {
-        element.parentNode.removeChild(element);
+        element.parentNode.removeChild(
+            element
+        );
+
     }
 }
 
+
 /* =========================================================
-   SCROLL CHAT
+   SCROLL
    ========================================================= */
 
-function scrollChatToBottom() {
+function scrollChat() {
 
     if (!chatBox) return;
 
-    setTimeout(() => {
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }, 50);
+    setTimeout(
+        () => {
+
+            chatBox.scrollTop =
+                chatBox.scrollHeight;
+
+        },
+        30
+    );
 }
 
+
 /* =========================================================
-   BUTTON STATE
+   BUTTON LOADING
    ========================================================= */
 
-function setSendingState(sending) {
+function setButtonLoading(
+    loading
+) {
 
     if (!sendBtn) return;
 
-    if (sending) {
 
-        sendBtn.disabled = true;
+    sendBtn.disabled =
+        loading;
 
-        sendBtn.setAttribute(
-            "aria-label",
-            "J.A.R.V.I.S. is processing"
-        );
 
-        sendBtn.classList.add("sending");
+    if (loading) {
+
+        sendBtn.textContent =
+            "…";
 
     } else {
 
-        sendBtn.disabled = false;
+        sendBtn.textContent =
+            "➤";
 
-        sendBtn.setAttribute(
-            "aria-label",
-            "Send message"
-        );
-
-        sendBtn.classList.remove("sending");
     }
+
 }
 
+
 /* =========================================================
-   BACKEND HEALTH CHECK
+   BACKEND HEALTH
    ========================================================= */
 
 async function checkBackend() {
 
-    console.log("Checking J.A.R.V.I.S. backend...");
+    console.log(
+        "Checking backend..."
+    );
+
 
     try {
 
-        const response = await fetch(
-            `${BACKEND_URL}/api/health`,
-            {
-                method: "GET",
-                cache: "no-store"
-            }
-        );
+        const response =
+            await fetch(
+                `${BACKEND_URL}/api/health`,
+                {
+                    method: "GET",
+                    cache: "no-store"
+                }
+            );
+
 
         if (!response.ok) {
+
             throw new Error(
-                `Health check failed: ${response.status}`
+                `Health check: ${response.status}`
             );
+
         }
 
-        const data = await response.json();
 
-        console.log("Backend health:", data);
+        const data =
+            await response.json();
 
-        setStatus(networkStatus, "ONLINE");
 
-        if (data.online) {
-            setStatus(aiStatus, "READY");
-        }
+        console.log(
+            "HEALTH:",
+            data
+        );
 
-        if (data.aiConfigured) {
-            setStatus(aiStatus, "READY");
+
+        setStatus(
+            networkStatus,
+            "ONLINE"
+        );
+
+
+        if (
+            data.aiConfigured
+        ) {
+
+            setStatus(
+                aiStatus,
+                "READY"
+            );
+
         } else {
-            setStatus(aiStatus, "NOT CONFIGURED");
+
+            setStatus(
+                aiStatus,
+                "NOT CONFIGURED"
+            );
+
         }
+
 
     } catch (error) {
 
         console.error(
-            "Backend health check failed:",
+            "Backend offline:",
             error
         );
 
-        setStatus(networkStatus, "OFFLINE");
+
+        setStatus(
+            networkStatus,
+            "OFFLINE"
+        );
 
     }
 }
 
+
 /* =========================================================
-   STATUS HELPER
+   STATUS
    ========================================================= */
 
-function setStatus(element, text) {
+function setStatus(
+    element,
+    value
+) {
 
     if (!element) return;
 
-    /*
-       Support both normal elements and inputs.
-    */
+    element.textContent =
+        value;
+
+    element.dataset.status =
+        String(value).toLowerCase();
+
+
     if (
-        element.tagName === "INPUT" ||
-        element.tagName === "TEXTAREA"
+        element === voiceStatus &&
+        voiceProtocolState
     ) {
-        element.value = text;
-    } else {
-        element.textContent = text;
+
+        voiceProtocolState.textContent =
+            value;
+    }
+}
+
+
+/* =========================================================
+   CONTEXT
+   ========================================================= */
+
+function getContext() {
+
+    const recent =
+        conversation.slice(-10);
+
+
+    if (!recent.length) {
+
+        return "No previous conversation.";
+
     }
 
-    element.setAttribute(
-        "data-status",
-        String(text).toLowerCase()
-    );
+
+    return recent
+        .map(
+            item =>
+                `${item.role}: ${item.content}`
+        )
+        .join("\n");
 }
+
 
 /* =========================================================
    QUICK COMMANDS
@@ -524,135 +747,57 @@ function setStatus(element, text) {
 function setupQuickCommands() {
 
     const buttons =
-        document.querySelectorAll("[data-command]");
+        document.querySelectorAll(
+            "[data-command]"
+        );
 
-    buttons.forEach(button => {
 
-        button.addEventListener("click", event => {
+    buttons.forEach(
+        button => {
 
-            event.preventDefault();
+            button.addEventListener(
+                "click",
+                event => {
 
-            const command =
-                button.getAttribute("data-command");
+                    event.preventDefault();
 
-            if (!command) return;
 
-            /*
-               Put command into input.
-            */
-            if (userInput) {
-                userInput.value = command;
-                userInput.focus();
-            }
+                    const command =
+                        button.dataset.command;
 
-            /*
-               Send immediately.
-            */
-            sendMessage();
-        });
-    });
+
+                    if (!command) return;
+
+
+                    if (userInput) {
+
+                        userInput.value =
+                            command;
+
+                    }
+
+
+                    sendMessage();
+
+                }
+            );
+
+        }
+    );
 }
 
-/* =========================================================
-   BUILD CONTEXT
-   ========================================================= */
-
-function buildContext() {
-
-    /*
-       Keep the context short.
-       This prevents huge requests.
-    */
-
-    const recentConversation =
-        conversation.slice(-10);
-
-    if (!recentConversation.length) {
-        return "No previous conversation.";
-    }
-
-    return recentConversation
-        .map(item => {
-            return `${item.role}: ${item.content}`;
-        })
-        .join("\n");
-}
 
 /* =========================================================
    MEMORY
    ========================================================= */
 
-const MEMORY_KEY = "JARVIS_MEMORY";
-
 function setupMemory() {
 
-    setStatus(memoryStatus, "ACTIVE");
+    setStatus(
+        memoryStatus,
+        "ACTIVE"
+    );
 
-    try {
-
-        const saved =
-            localStorage.getItem(MEMORY_KEY);
-
-        if (saved) {
-
-            console.log(
-                "J.A.R.V.I.S. memory restored."
-            );
-
-        } else {
-
-            localStorage.setItem(
-                MEMORY_KEY,
-                JSON.stringify({
-                    created: new Date().toISOString()
-                })
-            );
-        }
-
-    } catch (error) {
-
-        console.warn(
-            "Memory storage unavailable:",
-            error
-        );
-
-        setStatus(memoryStatus, "LIMITED");
-    }
-}
-
-/* =========================================================
-   SAVE CONVERSATION
-   ========================================================= */
-
-function saveConversation() {
-
-    try {
-
-        /*
-           Only save the last 30 messages.
-        */
-        const data =
-            conversation.slice(-30);
-
-        localStorage.setItem(
-            "JARVIS_CONVERSATION",
-            JSON.stringify(data)
-        );
-
-    } catch (error) {
-
-        console.warn(
-            "Could not save conversation:",
-            error
-        );
-    }
-}
-
-/* =========================================================
-   LOAD CONVERSATION
-   ========================================================= */
-
-function loadConversation() {
 
     try {
 
@@ -661,203 +806,280 @@ function loadConversation() {
                 "JARVIS_CONVERSATION"
             );
 
-        if (!saved) return;
 
-        const data = JSON.parse(saved);
+        if (saved) {
 
-        if (!Array.isArray(data)) return;
+            const data =
+                JSON.parse(saved);
 
-        conversation = data;
+
+            if (
+                Array.isArray(data)
+            ) {
+
+                conversation =
+                    data;
+
+            }
+
+        }
 
     } catch (error) {
 
         console.warn(
-            "Could not load conversation:",
+            "Memory unavailable:",
+            error
+        );
+
+
+        setStatus(
+            memoryStatus,
+            "LIMITED"
+        );
+    }
+}
+
+
+/* =========================================================
+   SAVE MEMORY
+   ========================================================= */
+
+function saveConversation() {
+
+    try {
+
+        localStorage.setItem(
+            "JARVIS_CONVERSATION",
+            JSON.stringify(
+                conversation.slice(-30)
+            )
+        );
+
+    } catch (error) {
+
+        console.warn(
+            "Could not save memory.",
             error
         );
     }
 }
 
+
 /* =========================================================
    VOICE RECOGNITION
    ========================================================= */
 
-function setupVoiceRecognition() {
+function setupVoice() {
 
     const SpeechRecognition =
         window.SpeechRecognition ||
         window.webkitSpeechRecognition;
 
+
     if (!SpeechRecognition) {
 
-        console.warn(
-            "Speech recognition is not supported."
+        setStatus(
+            voiceStatus,
+            "UNAVAILABLE"
         );
-
-        setStatus(voiceStatus, "UNAVAILABLE");
 
         return;
     }
 
-    recognition = new SpeechRecognition();
 
-    recognition.continuous = false;
-    recognition.interimResults = true;
+    recognition =
+        new SpeechRecognition();
 
-    /*
-       Telugu + English.
-       Browser may choose the best available language.
-    */
-    recognition.lang = "en-IN";
 
-    recognition.onstart = () => {
+    recognition.continuous =
+        false;
 
-        isListening = true;
+    recognition.interimResults =
+        true;
 
-        setStatus(voiceStatus, "LISTENING");
+    recognition.lang =
+        "en-IN";
 
-        if (micBtn) {
-            micBtn.classList.add("active");
-        }
 
-        console.log("Voice recognition started.");
-    };
+    recognition.onstart =
+        function() {
 
-    recognition.onresult = event => {
+            isListening =
+                true;
 
-        let transcript = "";
 
-        for (
-            let i = event.resultIndex;
-            i < event.results.length;
-            i++
-        ) {
+            setStatus(
+                voiceStatus,
+                "LISTENING"
+            );
 
-            transcript +=
-                event.results[i][0].transcript;
-        }
 
-        if (userInput) {
-            userInput.value = transcript.trim();
-        }
-    };
+            if (micBtn) {
 
-    recognition.onerror = event => {
+                micBtn.classList.add(
+                    "active"
+                );
 
-        console.error(
-            "Voice recognition error:",
-            event.error
-        );
+            }
 
-        isListening = false;
+        };
 
-        setStatus(voiceStatus, "READY");
 
-        if (micBtn) {
-            micBtn.classList.remove("active");
-        }
-    };
+    recognition.onresult =
+        function(event) {
 
-    recognition.onend = () => {
+            let text = "";
 
-        isListening = false;
 
-        setStatus(voiceStatus, "READY");
+            for (
+                let i =
+                    event.resultIndex;
 
-        if (micBtn) {
-            micBtn.classList.remove("active");
-        }
+                i <
+                event.results.length;
 
-        /*
-           Automatically send recognized speech.
-        */
-        if (
-            userInput &&
-            userInput.value.trim()
-        ) {
-            sendMessage();
-        }
-    };
+                i++
+            ) {
+
+                text +=
+                    event.results[i][0]
+                        .transcript;
+
+            }
+
+
+            if (userInput) {
+
+                userInput.value =
+                    text.trim();
+
+            }
+
+        };
+
+
+    recognition.onerror =
+        function(event) {
+
+            console.error(
+                "VOICE ERROR:",
+                event.error
+            );
+
+        };
+
+
+    recognition.onend =
+        function() {
+
+            isListening =
+                false;
+
+
+            setStatus(
+                voiceStatus,
+                "READY"
+            );
+
+
+            if (micBtn) {
+
+                micBtn.classList.remove(
+                    "active"
+                );
+
+            }
+
+
+            if (
+                userInput &&
+                userInput.value.trim()
+            ) {
+
+                sendMessage();
+
+            }
+
+        };
+
 
     if (micBtn) {
 
-        micBtn.addEventListener("click", event => {
+        micBtn.addEventListener(
+            "click",
+            function() {
 
-            event.preventDefault();
+                if (isListening) {
 
-            toggleVoiceRecognition();
+                    recognition.stop();
 
-        });
-    }
+                } else {
 
-    setStatus(voiceStatus, "READY");
-}
+                    try {
 
-/* =========================================================
-   TOGGLE VOICE
-   ========================================================= */
+                        recognition.start();
 
-function toggleVoiceRecognition() {
+                    } catch (error) {
 
-    if (!recognition) {
+                        console.warn(
+                            error
+                        );
 
-        console.warn(
-            "Voice recognition unavailable."
+                    }
+
+                }
+
+            }
         );
 
-        return;
     }
 
-    if (isListening) {
-
-        recognition.stop();
-
-    } else {
-
-        try {
-
-            recognition.start();
-
-        } catch (error) {
-
-            console.warn(
-                "Could not start recognition:",
-                error
-            );
-        }
-    }
 }
 
+
 /* =========================================================
-   SPEECH SYNTHESIS
+   SPEECH
    ========================================================= */
 
-function setupSpeechSynthesis() {
+function setupSpeech() {
 
-    if (!("speechSynthesis" in window)) {
-
-        setStatus(voiceStatus, "LIMITED");
+    if (
+        !("speechSynthesis" in window)
+    ) {
 
         return;
     }
+
 
     loadVoices();
 
-    window.speechSynthesis.onvoiceschanged =
+
+    window.speechSynthesis
+        .onvoiceschanged =
         loadVoices;
 }
 
+
+/* =========================================================
+   LOAD VOICES
+   ========================================================= */
+
 function loadVoices() {
 
-    if (!("speechSynthesis" in window)) return;
+    if (
+        !("speechSynthesis" in window)
+    ) {
 
-    currentVoices =
-        window.speechSynthesis.getVoices();
-
-    if (currentVoices.length) {
-        setStatus(voiceStatus, "READY");
+        return;
     }
+
+
+    voices =
+        window.speechSynthesis
+            .getVoices();
+
 }
+
 
 /* =========================================================
    SPEAK
@@ -865,89 +1087,174 @@ function loadVoices() {
 
 function speak(text) {
 
-    if (!("speechSynthesis" in window)) {
+    if (
+        !("speechSynthesis" in window)
+    ) {
+
         return;
     }
+
 
     if (!text) return;
 
-    /*
-       Stop previous speech.
-    */
+
     window.speechSynthesis.cancel();
 
-    /*
-       Remove markdown symbols so speech sounds natural.
-    */
-    const cleanText =
+
+    const clean =
         String(text)
-            .replace(/[*_#>`~]/g, "")
-            .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+            .replace(
+                /[*_#>`~]/g,
+                ""
+            )
+            .replace(
+                /\[(.*?)\]\(.*?\)/g,
+                "$1"
+            )
             .trim();
 
-    if (!cleanText) return;
+
+    if (!clean) return;
+
 
     const utterance =
-        new SpeechSynthesisUtterance(cleanText);
-
-    /*
-       Prefer Indian English voice.
-    */
-    let voice =
-        currentVoices.find(v =>
-            v.lang &&
-            v.lang.toLowerCase() === "en-in"
+        new SpeechSynthesisUtterance(
+            clean
         );
 
-    if (!voice) {
 
-        voice =
-            currentVoices.find(v =>
-                v.lang &&
-                v.lang.toLowerCase().startsWith("en")
+    const indianVoice =
+        voices.find(
+            voice =>
+                voice.lang &&
+                voice.lang
+                    .toLowerCase() ===
+                "en-in"
+        );
+
+
+    const englishVoice =
+        voices.find(
+            voice =>
+                voice.lang &&
+                voice.lang
+                    .toLowerCase()
+                    .startsWith("en")
+        );
+
+
+    if (indianVoice) {
+
+        utterance.voice =
+            indianVoice;
+
+    } else if (englishVoice) {
+
+        utterance.voice =
+            englishVoice;
+
+    }
+
+
+    utterance.lang =
+        "en-IN";
+
+    utterance.rate =
+        0.95;
+
+    utterance.pitch =
+        0.9;
+
+    utterance.volume =
+        1;
+
+
+    utterance.onstart =
+        function() {
+
+            setStatus(
+                voiceStatus,
+                "SPEAKING"
             );
-    }
 
-    if (voice) {
-        utterance.voice = voice;
-    }
+        };
 
-    utterance.lang = "en-IN";
 
-    utterance.rate = 0.95;
-    utterance.pitch = 0.9;
-    utterance.volume = 1;
+    utterance.onend =
+        function() {
 
-    utterance.onstart = () => {
-        setStatus(voiceStatus, "SPEAKING");
-    };
+            setStatus(
+                voiceStatus,
+                "READY"
+            );
 
-    utterance.onend = () => {
-        setStatus(voiceStatus, "READY");
-    };
+        };
 
-    utterance.onerror = () => {
-        setStatus(voiceStatus, "READY");
-    };
 
-    window.speechSynthesis.speak(utterance);
+    utterance.onerror =
+        function() {
+
+            setStatus(
+                voiceStatus,
+                "READY"
+            );
+
+        };
+
+
+    window.speechSynthesis.speak(
+        utterance
+    );
 }
 
+
 /* =========================================================
-   STOP SPEAKING
+   GLOBAL API
    ========================================================= */
 
-function stopSpeaking() {
+window.JARVIS = {
 
-    if (!("speechSynthesis" in window)) {
-        return;
+    sendMessage,
+
+    speak,
+
+    checkBackend,
+
+    stopSpeaking: function() {
+
+        if (
+            "speechSynthesis"
+            in window
+        ) {
+
+            window.speechSynthesis.cancel();
+
+        }
+
     }
 
-    window.speechSynthesis.cancel();
+};
 
-    setStatus(voiceStatus, "READY");
-}
 
 /* =========================================================
-   GLOBAL JARVIS COMMANDS
-   ===========================
+   START J.A.R.V.I.S.
+   ========================================================= */
+
+startJarvis();
+
+
+console.log(
+    "================================="
+);
+
+console.log(
+    "J.A.R.V.I.S. FRONTEND READY"
+);
+
+console.log(
+    "BACKEND:",
+    BACKEND_URL
+);
+
+console.log(
+    "=================
