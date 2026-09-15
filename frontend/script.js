@@ -1257,4 +1257,17 @@ console.log(
 );
 
 console.log(
+    "================================="
+);
+
+console.log(
+    "J.A.R.V.I.S. FRONTEND READY"
+);
+
+console.log(
+    "BACKEND:",
+    BACKEND_URL
+);
+
+console.log(
     "=================
