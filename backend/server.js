@@ -101,7 +101,8 @@ Answer naturally and concisely.
   success: false,
   error: error?.message || "J.A.R.V.I.S. could not process the request."
 });
-
+  }
+});
 app.listen(PORT, () => {
   console.log(`J.A.R.V.I.S. backend running on port ${PORT}`);
 });
