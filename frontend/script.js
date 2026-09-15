@@ -1,34 +1,33 @@
-/* =========================================
-   J.A.R.V.I.S. CORE
-========================================= */
+/* =========================================================
+   J.A.R.V.I.S. 2.0
+   FRONTEND ENGINE
+   Gemini requests go through the secure Render backend.
+   ========================================================= */
 
-let API_KEY = localStorage.getItem("jarvis_key");
+"use strict";
 
-if (!API_KEY) {
-  API_KEY = prompt("Enter your Gemini API Key:");
+/* =========================================================
+   BACKEND
+   ========================================================= */
 
-  if (API_KEY) {
-    localStorage.setItem("jarvis_key", API_KEY);
-  }
-}
+const BACKEND_URL = "https://jarvis-backend-wwpa.onrender.com";
 
-
-/* =========================================
+/* =========================================================
    CONFIG
-========================================= */
-
-const MODELS = [
-  "gemini-3.6-flash",
-  "gemini-flash-latest"
-];
+   ========================================================= */
 
 const MEMORY_DB = "JARVIS_MEMORY_DB";
 const MEMORY_STORE = "memories";
 
+let db = null;
+let conversation = [];
+let recognition = null;
+let isListening = false;
+let currentVoices = [];
 
-/* =========================================
+/* =========================================================
    DOM
-========================================= */
+   ========================================================= */
 
 const chatBox = document.getElementById("chatBox");
 const userInput = document.getElementById("userInput");
@@ -61,33 +60,157 @@ const rateValue = document.getElementById("rateValue");
 
 const testVoiceBtn = document.getElementById("testVoice");
 
+/* =========================================================
+   SAFE ELEMENT HELPERS
+   ========================================================= */
 
-/* =========================================
+function exists(element) {
+  return element !== null && element !== undefined;
+}
+
+function setText(element, text) {
+  if (exists(element)) {
+    element.textContent = text;
+  }
+}
+
+function setStatus(element, text) {
+  if (exists(element)) {
+    element.textContent = text;
+  }
+}
+
+/* =========================================================
+   UI STATUS
+   ========================================================= */
+
+function setAIStatus(text) {
+  setStatus(aiStatus, text);
+}
+
+function setNetworkStatus(text) {
+  setStatus(networkStatus, text);
+}
+
+function setMemoryStatus(text) {
+  setStatus(memoryStatus, text);
+}
+
+function setVoiceStatus(text) {
+  setStatus(voiceStatus, text);
+}
+
+/* =========================================================
+   CHAT UI
+   ========================================================= */
+
+function addMessage(role, text, speak = false) {
+  if (!exists(chatBox)) return;
+
+  const message = document.createElement("div");
+
+  message.className =
+    role === "user"
+      ? "message user-message"
+      : "message jarvis-message";
+
+  const label = document.createElement("div");
+
+  label.className = "message-label";
+  label.textContent =
+    role === "user" ? "YOU" : "J.A.R.V.I.S.";
+
+  const content = document.createElement("div");
+
+  content.className = "message-content";
+  content.textContent = text;
+
+  message.appendChild(label);
+  message.appendChild(content);
+
+  chatBox.appendChild(message);
+
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  if (speak && role !== "user") {
+    speakText(text);
+  }
+}
+
+function addThinkingMessage() {
+  if (!exists(chatBox)) return null;
+
+  const message = document.createElement("div");
+
+  message.className = "message jarvis-message thinking-message";
+
+  const label = document.createElement("div");
+  label.className = "message-label";
+  label.textContent = "J.A.R.V.I.S.";
+
+  const content = document.createElement("div");
+  content.className = "message-content";
+  content.textContent = "Processing...";
+
+  message.appendChild(label);
+  message.appendChild(content);
+
+  chatBox.appendChild(message);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  return message;
+}
+
+function removeMessage(element) {
+  if (element && element.parentNode) {
+    element.parentNode.removeChild(element);
+  }
+}
+
+/* =========================================================
    CONVERSATION
-========================================= */
+   ========================================================= */
 
-let conversation = [];
+function addConversation(role, text) {
+  conversation.push({
+    role,
+    text,
+    time: Date.now()
+  });
 
+  /* Keep browser memory lightweight */
+  if (conversation.length > 30) {
+    conversation = conversation.slice(-30);
+  }
+}
 
-/* =========================================
-   MEMORY DATABASE
-========================================= */
+function getRecentConversation() {
+  return conversation
+    .slice(-10)
+    .map(item => {
+      const name = item.role === "user" ? "User" : "JARVIS";
+      return `${name}: ${item.text}`;
+    })
+    .join("\n");
+}
 
-let db = null;
-
+/* =========================================================
+   INDEXEDDB MEMORY
+   ========================================================= */
 
 function openDatabase() {
-
   return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error("IndexedDB is not supported."));
+      return;
+    }
 
     const request = indexedDB.open(MEMORY_DB, 1);
 
     request.onupgradeneeded = event => {
-
       const database = event.target.result;
 
       if (!database.objectStoreNames.contains(MEMORY_STORE)) {
-
         const store = database.createObjectStore(
           MEMORY_STORE,
           {
@@ -98,102 +221,66 @@ function openDatabase() {
 
         store.createIndex(
           "createdAt",
-          "createdAt"
+          "createdAt",
+          { unique: false }
         );
-
       }
-
     };
 
     request.onsuccess = event => {
-
       db = event.target.result;
-
       resolve(db);
-
     };
 
     request.onerror = () => {
-
       reject(request.error);
-
     };
-
   });
-
 }
 
-
-/* =========================================
-   SAVE MEMORY
-========================================= */
-
-function saveMemory(text) {
-
-  if (!db || !text.trim()) {
-    return;
-  }
-
+function saveMemory(title, content) {
   return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error("Memory database unavailable."));
+      return;
+    }
 
     const transaction = db.transaction(
       MEMORY_STORE,
       "readwrite"
     );
 
-    const store = transaction.objectStore(
-      MEMORY_STORE
-    );
+    const store = transaction.objectStore(MEMORY_STORE);
 
-    store.add({
-      text: text.trim(),
+    const request = store.add({
+      title: title || "J.A.R.V.I.S. Memory",
+      content: content || "",
       createdAt: Date.now()
     });
 
-    transaction.oncomplete = () => {
+    request.onsuccess = () => resolve(request.result);
 
-      memoryStatus.textContent = "ACTIVE";
-
-      resolve();
-
-    };
-
-    transaction.onerror = () => {
-
-      reject(transaction.error);
-
-    };
-
+    request.onerror = () => reject(request.error);
   });
-
 }
 
-
-/* =========================================
-   LOAD MEMORIES
-========================================= */
-
 function getMemories() {
-
-  if (!db) {
-    return Promise.resolve([]);
-  }
-
   return new Promise((resolve, reject) => {
+    if (!db) {
+      resolve([]);
+      return;
+    }
 
     const transaction = db.transaction(
       MEMORY_STORE,
       "readonly"
     );
 
-    const store = transaction.objectStore(
-      MEMORY_STORE
-    );
+    const store = transaction.objectStore(MEMORY_STORE);
 
     const request = store.getAll();
 
     request.onsuccess = () => {
-
       const memories = request.result || [];
 
       memories.sort(
@@ -201,1013 +288,703 @@ function getMemories() {
       );
 
       resolve(memories);
-
     };
 
     request.onerror = () => {
-
       reject(request.error);
-
     };
-
   });
-
 }
 
+function deleteMemory(id) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error("Memory database unavailable."));
+      return;
+    }
 
-/* =========================================
+    const transaction = db.transaction(
+      MEMORY_STORE,
+      "readwrite"
+    );
+
+    const store = transaction.objectStore(MEMORY_STORE);
+
+    const request = store.delete(id);
+
+    request.onsuccess = () => resolve();
+
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function clearAllMemories() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      resolve();
+      return;
+    }
+
+    const transaction = db.transaction(
+      MEMORY_STORE,
+      "readwrite"
+    );
+
+    const store = transaction.objectStore(MEMORY_STORE);
+
+    const request = store.clear();
+
+    request.onsuccess = () => resolve();
+
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/* =========================================================
    MEMORY CONTEXT
-========================================= */
+   ========================================================= */
 
-async function memoryContext() {
-
+async function getMemoryContext() {
   try {
-
     const memories = await getMemories();
 
     return memories
-      .slice(0, 8)
-      .map(item => `- ${item.text}`)
+      .slice(0, 10)
+      .map(memory => {
+        return `${memory.title}: ${memory.content}`;
+      })
       .join("\n");
-
-  } catch {
-
+  } catch (error) {
+    console.warn("Memory context error:", error);
     return "";
-
   }
-
 }
 
-
-/* =========================================
-   RENDER MEMORY
-========================================= */
+/* =========================================================
+   RENDER MEMORY LIST
+   ========================================================= */
 
 async function renderMemories(filter = "") {
+  if (!exists(memoryList)) return;
 
-  const memories = await getMemories();
+  try {
+    const memories = await getMemories();
 
-  const search = filter
-    .trim()
-    .toLowerCase();
+    const search = filter
+      .trim()
+      .toLowerCase();
 
-  const filtered = memories.filter(memory =>
-    memory.text
-      .toLowerCase()
-      .includes(search)
-  );
+    const filtered = memories.filter(memory => {
+      if (!search) return true;
 
-  if (!filtered.length) {
+      return (
+        memory.title.toLowerCase().includes(search) ||
+        memory.content.toLowerCase().includes(search)
+      );
+    });
 
-    memoryList.innerHTML = `
-      <div class="empty-memory">
-        No stored memories.
-      </div>
-    `;
+    memoryList.innerHTML = "";
 
-    return;
+    if (filtered.length === 0) {
+      const empty = document.createElement("div");
 
-  }
+      empty.className = "memory-empty";
+      empty.textContent = "No memories found.";
 
-  memoryList.innerHTML = filtered
-    .map(memory => {
+      memoryList.appendChild(empty);
+      return;
+    }
 
-      const date = new Date(
+    filtered.forEach(memory => {
+      const item = document.createElement("div");
+
+      item.className = "memory-item";
+
+      const title = document.createElement("div");
+
+      title.className = "memory-title";
+      title.textContent = memory.title;
+
+      const content = document.createElement("div");
+
+      content.className = "memory-content";
+      content.textContent = memory.content;
+
+      const date = document.createElement("div");
+
+      date.className = "memory-date";
+
+      date.textContent = new Date(
         memory.createdAt
       ).toLocaleString();
 
-      return `
-        <div class="memory-item">
+      const deleteButton = document.createElement("button");
 
-          <div class="memory-item-text">
-            ${escapeHTML(memory.text)}
-          </div>
+      deleteButton.className = "memory-delete";
+      deleteButton.textContent = "DELETE";
 
-          <div class="memory-item-date">
-            ${escapeHTML(date)}
-          </div>
+      deleteButton.addEventListener(
+        "click",
+        async () => {
+          await deleteMemory(memory.id);
+          await renderMemories(
+            exists(memorySearch)
+              ? memorySearch.value
+              : ""
+          );
+        }
+      );
 
-        </div>
-      `;
+      item.appendChild(title);
+      item.appendChild(content);
+      item.appendChild(date);
+      item.appendChild(deleteButton);
 
-    })
-    .join("");
+      memoryList.appendChild(item);
+    });
 
+    setMemoryStatus(`${filtered.length} MEMORY`);
+  } catch (error) {
+    console.error(error);
+  }
 }
 
-
-/* =========================================
-   ESCAPE HTML
-========================================= */
-
-function escapeHTML(text) {
-
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-
-}
-
-
-/* =========================================
-   CLEAR MEMORY
-========================================= */
-
-function clearMemory() {
-
-  if (!db) return;
-
-  const transaction = db.transaction(
-    MEMORY_STORE,
-    "readwrite"
-  );
-
-  transaction
-    .objectStore(MEMORY_STORE)
-    .clear();
-
-  transaction.oncomplete = () => {
-
-    renderMemories();
-
-    memoryStatus.textContent = "EMPTY";
-
-  };
-
-}
-
-
-/* =========================================
-   GEMINI
-========================================= */
+/* =========================================================
+   GEMINI → RENDER BACKEND
+   ========================================================= */
 
 async function callGemini(prompt) {
+  const response = await fetch(
+    `${BACKEND_URL}/api/chat`,
+    {
+      method: "POST",
 
-  if (!API_KEY) {
+      headers: {
+        "Content-Type": "application/json"
+      },
 
-    throw new Error(
-      "Gemini API key is missing."
-    );
-
-  }
-
-  let lastError = new Error(
-    "Unable to connect to Gemini."
+      body: JSON.stringify({
+        message: prompt
+      })
+    }
   );
 
+  let data = {};
 
-  for (const model of MODELS) {
-
-    try {
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(API_KEY)}`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json"
-          },
-
-          body: JSON.stringify({
-
-            contents: [
-              {
-                role: "user",
-
-                parts: [
-                  {
-                    text: prompt
-                  }
-                ]
-              }
-            ]
-
-          })
-
-        }
-      );
-
-
-      const data = await response.json();
-
-
-      if (!response.ok) {
-
-        const message =
-          data?.error?.message ||
-          `HTTP ${response.status}`;
-
-        lastError = new Error(message);
-
-
-        if (
-          /quota|limit|resource|high demand|unavailable|not found|deprecated/i
-            .test(message)
-        ) {
-
-          continue;
-
-        }
-
-        throw lastError;
-
-      }
-
-
-      const answer =
-        data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-
-      if (answer) {
-
-        return answer.trim();
-
-      }
-
-
-      lastError = new Error(
-        "Gemini returned no answer."
-      );
-
-    }
-
-    catch (error) {
-
-      lastError = error;
-
-    }
-
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(
+      "J.A.R.V.I.S. backend returned an invalid response."
+    );
   }
 
+  if (!response.ok) {
+    throw new Error(
+      data.error ||
+      `Backend error: ${response.status}`
+    );
+  }
 
-  throw lastError;
+  if (!data.reply) {
+    throw new Error(
+      "J.A.R.V.I.S. received no AI response."
+    );
+  }
 
+  return data.reply.trim();
 }
 
-
-/* =========================================
-   JARVIS PROMPT
-========================================= */
+/* =========================================================
+   ASK JARVIS
+   ========================================================= */
 
 async function askJarvis(question) {
+  if (!question || !question.trim()) {
+    return;
+  }
 
-  const memories = await memoryContext();
+  const cleanQuestion = question.trim();
 
+  addMessage(
+    "user",
+    cleanQuestion,
+    false
+  );
 
-  const recentConversation =
-    conversation
-      .slice(-8)
-      .map(item => {
+  addConversation(
+    "user",
+    cleanQuestion
+  );
 
-        return `${item.role}: ${item.text}`;
+  if (exists(userInput)) {
+    userInput.value = "";
+  }
 
-      })
-      .join("\n");
+  setAIStatus("THINKING");
+  setNetworkStatus("CONNECTING");
 
+  const thinking = addThinkingMessage();
 
-  const prompt = `
-You are J.A.R.V.I.S., a calm, intelligent, futuristic AI assistant.
+  try {
+    const memory = await getMemoryContext();
+
+    const recentConversation =
+      getRecentConversation();
+
+    const prompt = `
+You are J.A.R.V.I.S., a futuristic personal AI assistant.
 
 Personality:
 - Intelligent
 - Calm
 - Helpful
-- Concise
-- Professional
+- Clear
 - Slightly futuristic
-- Never pretend to know something you do not know
+- Natural conversational style
 
 Important:
-Do not invent current stock prices, current news, weather,
-or other live information if you do not actually have live access.
+- Never claim you performed an action unless the connected system actually performed it.
+- If you cannot control something yet, clearly say so.
+- Keep answers reasonably concise unless the user asks for detail.
 
-Use the user's stored memories when helpful.
+Saved memory:
+${memory || "No saved memories."}
 
-STORED MEMORY:
-${memories || "No stored memories."}
-
-RECENT CONVERSATION:
+Recent conversation:
 ${recentConversation || "No previous conversation."}
 
-USER:
-${question}
-
-Respond naturally as J.A.R.V.I.S.
+Current user request:
+${cleanQuestion}
 `;
 
+    const reply = await callGemini(prompt);
 
-  return await callGemini(prompt);
-
-}
-
-
-/* =========================================
-   CHAT UI
-========================================= */
-
-function addMessage(
-  text,
-  type = "jarvis"
-) {
-
-  const message = document.createElement("div");
-
-  message.className =
-    `message ${
-      type === "user"
-        ? "user-message"
-        : "jarvis-message"
-    }`;
-
-
-  message.innerHTML = `
-
-    <div class="message-label">
-      ${
-        type === "user"
-          ? "YOU"
-          : "J.A.R.V.I.S."
-      }
-    </div>
-
-    <div class="message-text">
-      ${escapeHTML(text)}
-    </div>
-
-  `;
-
-
-  chatBox.appendChild(message);
-
-  chatBox.scrollTop =
-    chatBox.scrollHeight;
-
-}
-
-
-/* =========================================
-   SEND MESSAGE
-========================================= */
-
-async function sendMessage() {
-
-  const question =
-    userInput.value.trim();
-
-
-  if (!question) {
-    return;
-  }
-
-
-  if (!API_KEY) {
+    removeMessage(thinking);
 
     addMessage(
-      "Gemini API key is missing. Please reload the page and enter your API key.",
-      "jarvis"
+      "assistant",
+      reply,
+      true
     );
 
-    return;
+    addConversation(
+      "assistant",
+      reply
+    );
 
+    setAIStatus("ONLINE");
+    setNetworkStatus("CONNECTED");
+
+  } catch (error) {
+    console.error(
+      "J.A.R.V.I.S. error:",
+      error
+    );
+
+    removeMessage(thinking);
+
+    let message =
+      "I am unable to connect to my AI core right now.";
+
+    if (
+      error.message &&
+      error.message.length < 250
+    ) {
+      message += `\n\nError: ${error.message}`;
+    }
+
+    addMessage(
+      "assistant",
+      message,
+      false
+    );
+
+    setAIStatus("ERROR");
+    setNetworkStatus("OFFLINE");
   }
+}
 
+/* =========================================================
+   SEND BUTTON
+   ========================================================= */
 
-  addMessage(
-    question,
-    "user"
+function sendCurrentMessage() {
+  if (!exists(userInput)) return;
+
+  const message = userInput.value.trim();
+
+  if (!message) return;
+
+  askJarvis(message);
+}
+
+if (exists(sendBtn)) {
+  sendBtn.addEventListener(
+    "click",
+    sendCurrentMessage
   );
-
-
-  conversation.push({
-    role: "user",
-    text: question
-  });
-
-
-  userInput.value = "";
-
-
-  aiStatus.textContent = "THINKING";
-  networkStatus.textContent = "PROCESSING";
-
-
-  sendBtn.disabled = true;
-
-
-  try {
-
-    const answer =
-      await askJarvis(question);
-
-
-    addMessage(
-      answer,
-      "jarvis"
-    );
-
-
-    conversation.push({
-      role: "assistant",
-      text: answer
-    });
-
-
-    aiStatus.textContent = "READY";
-    networkStatus.textContent = "ONLINE";
-
-
-    speak(answer);
-
-  }
-
-  catch (error) {
-
-    console.error(error);
-
-
-    addMessage(
-      `I encountered a connection problem: ${error.message}`,
-      "jarvis"
-    );
-
-
-    aiStatus.textContent = "ERROR";
-    networkStatus.textContent = "OFFLINE";
-
-  }
-
-  finally {
-
-    sendBtn.disabled = false;
-
-    userInput.focus();
-
-  }
-
 }
 
-
-/* =========================================
-   BUTTON EVENTS
-========================================= */
-
-sendBtn.addEventListener(
-  "click",
-  sendMessage
-);
-
-
-userInput.addEventListener(
-  "keydown",
-  event => {
-
-    if (event.key === "Enter") {
-
-      event.preventDefault();
-
-      sendMessage();
-
-    }
-
-  }
-);
-
-
-/* =========================================
-   QUICK COMMANDS
-========================================= */
-
-document
-  .querySelectorAll("[data-command]")
-  .forEach(button => {
-
-    button.addEventListener(
-      "click",
-      () => {
-
-        userInput.value =
-          button.dataset.command;
-
-        userInput.focus();
-
-        sendMessage();
-
+if (exists(userInput)) {
+  userInput.addEventListener(
+    "keydown",
+    event => {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
+        event.preventDefault();
+        sendCurrentMessage();
       }
-    );
-
-  });
-
-
-/* =========================================
-   MEMORY DRAWER
-========================================= */
-
-function openMemory() {
-
-  memoryDrawer.classList.add("open");
-
-  drawerOverlay.classList.add("open");
-
-  renderMemories();
-
+    }
+  );
 }
 
+/* =========================================================
+   QUICK COMMANDS
+   ========================================================= */
 
-function closeMemoryDrawer() {
-
-  memoryDrawer.classList.remove("open");
-
-  drawerOverlay.classList.remove("open");
-
-}
-
-
-memoryBtn.addEventListener(
+document.addEventListener(
   "click",
-  openMemory
-);
-
-
-closeMemory.addEventListener(
-  "click",
-  closeMemoryDrawer
-);
-
-
-drawerOverlay.addEventListener(
-  "click",
-  closeMemoryDrawer
-);
-
-
-memorySearch.addEventListener(
-  "input",
-  () => {
-
-    renderMemories(
-      memorySearch.value
-    );
-
-  }
-);
-
-
-/* =========================================
-   SAVE CURRENT CHAT
-========================================= */
-
-saveChatBtn.addEventListener(
-  "click",
-  async () => {
-
-    if (!conversation.length) {
-
-      return;
-
-    }
-
-
-    const text =
-      conversation
-        .slice(-10)
-        .map(item =>
-          `${item.role.toUpperCase()}: ${item.text}`
-        )
-        .join("\n");
-
-
-    try {
-
-      await saveMemory(text);
-
-      await renderMemories();
-
-      memoryStatus.textContent =
-        "SAVED";
-
-    }
-
-    catch (error) {
-
-      console.error(error);
-
-    }
-
-  }
-);
-
-
-/* =========================================
-   CLEAR MEMORY
-========================================= */
-
-clearMemoryBtn.addEventListener(
-  "click",
-  () => {
-
-    const confirmed =
-      confirm(
-        "Clear all J.A.R.V.I.S. memories?"
+  event => {
+    const button =
+      event.target.closest(
+        "[data-command]"
       );
 
+    if (!button) return;
 
-    if (confirmed) {
+    const command =
+      button.getAttribute(
+        "data-command"
+      );
 
-      clearMemory();
-
+    if (command) {
+      askJarvis(command);
     }
-
   }
 );
 
+/* =========================================================
+   VOICE RECOGNITION
+   ========================================================= */
 
-/* =========================================
-   SPEECH RECOGNITION
-========================================= */
+function initializeSpeechRecognition() {
+  const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
 
-const SpeechRecognition =
-  window.SpeechRecognition ||
-  window.webkitSpeechRecognition;
-
-
-let recognition = null;
-
-let isListening = false;
-
-
-if (SpeechRecognition) {
+  if (!SpeechRecognition) {
+    setVoiceStatus("NOT SUPPORTED");
+    return;
+  }
 
   recognition =
     new SpeechRecognition();
 
-
   recognition.continuous = false;
+  recognition.interimResults = false;
 
-  recognition.interimResults = true;
-
-  recognition.lang = "en-US";
-
+  recognition.lang = "en-IN";
 
   recognition.onstart = () => {
-
     isListening = true;
 
-    micBtn.classList.add(
-      "listening"
-    );
+    setVoiceStatus("LISTENING");
 
-    voiceStatus.textContent =
-      "LISTENING";
-
+    if (exists(micBtn)) {
+      micBtn.classList.add(
+        "listening"
+      );
+    }
   };
-
 
   recognition.onresult = event => {
+    const result =
+      event.results[
+        event.results.length - 1
+      ];
 
-    let transcript = "";
+    const text =
+      result[0].transcript.trim();
 
+    if (text) {
+      if (exists(userInput)) {
+        userInput.value = text;
+      }
 
-    for (
-      let i = event.resultIndex;
-      i < event.results.length;
-      i++
-    ) {
-
-      transcript +=
-        event.results[i][0].transcript;
-
+      askJarvis(text);
     }
-
-
-    userInput.value =
-      transcript;
-
   };
 
-
-  recognition.onerror = error => {
-
-    console.error(
+  recognition.onerror = event => {
+    console.warn(
       "Speech recognition:",
-      error
+      event.error
     );
 
     isListening = false;
 
-    micBtn.classList.remove(
-      "listening"
-    );
+    setVoiceStatus("READY");
 
-    voiceStatus.textContent =
-      "READY";
-
+    if (exists(micBtn)) {
+      micBtn.classList.remove(
+        "listening"
+      );
+    }
   };
-
 
   recognition.onend = () => {
-
     isListening = false;
 
-    micBtn.classList.remove(
-      "listening"
-    );
+    setVoiceStatus("READY");
 
-    voiceStatus.textContent =
-      "READY";
-
-
-    if (userInput.value.trim()) {
-
-      sendMessage();
-
+    if (exists(micBtn)) {
+      micBtn.classList.remove(
+        "listening"
+      );
     }
-
   };
+}
 
+function toggleListening() {
+  if (!recognition) {
+    initializeSpeechRecognition();
+  }
 
+  if (!recognition) {
+    alert(
+      "Voice recognition is not supported by this browser."
+    );
+    return;
+  }
+
+  if (isListening) {
+    recognition.stop();
+    return;
+  }
+
+  try {
+    recognition.start();
+  } catch (error) {
+    console.warn(error);
+  }
+}
+
+if (exists(micBtn)) {
   micBtn.addEventListener(
     "click",
-    () => {
-
-      if (isListening) {
-
-        recognition.stop();
-
-      }
-
-      else {
-
-        try {
-
-          recognition.start();
-
-        }
-
-        catch (error) {
-
-          console.error(error);
-
-        }
-
-      }
-
-    }
+    toggleListening
   );
-
 }
 
-else {
-
-  micBtn.disabled = true;
-
-  voiceStatus.textContent =
-    "UNSUPPORTED";
-
-}
-
-
-/* =========================================
+/* =========================================================
    TEXT TO SPEECH
-========================================= */
-
-let voices = [];
-
-let selectedVoice = null;
-
+   ========================================================= */
 
 function loadVoices() {
+  if (!("speechSynthesis" in window)) {
+    setVoiceStatus("NOT SUPPORTED");
+    return;
+  }
 
-  voices =
+  currentVoices =
     speechSynthesis.getVoices();
 
+  if (!exists(voiceSelect)) return;
 
-  voiceSelect.innerHTML = `
-    <option value="">
-      Default Voice
-    </option>
-  `;
+  voiceSelect.innerHTML = "";
 
-
-  voices.forEach(
+  currentVoices.forEach(
     (voice, index) => {
-
       const option =
         document.createElement("option");
 
-
-      option.value =
-        index;
-
+      option.value = index;
 
       option.textContent =
-        `${voice.name} (${voice.lang})`;
-
+        `${voice.name} — ${voice.lang}`;
 
       voiceSelect.appendChild(
         option
       );
-
     }
   );
 
+  const preferredIndex =
+    currentVoices.findIndex(
+      voice =>
+        voice.lang
+          .toLowerCase()
+          .includes("en-in")
+    );
+
+  if (preferredIndex >= 0) {
+    voiceSelect.value =
+      preferredIndex;
+  }
 }
 
-
-if ("speechSynthesis" in window) {
-
-  loadVoices();
-
-  speechSynthesis.onvoiceschanged =
-    loadVoices;
-
-}
-
-
-/* =========================================
-   SPEAK
-========================================= */
-
-function speak(text) {
-
+function speakText(text) {
   if (
+    !text ||
     !("speechSynthesis" in window)
   ) {
-
     return;
-
   }
-
 
   speechSynthesis.cancel();
 
-
-  const cleanText =
-    text
-      .replace(/[*#_`]/g, "")
-      .replace(/\n+/g, ". ");
-
-
   const utterance =
     new SpeechSynthesisUtterance(
-      cleanText
+      text
     );
 
+  let selectedVoice = null;
 
-  const voiceIndex =
-    voiceSelect.value;
+  if (exists(voiceSelect)) {
+    const index =
+      Number(voiceSelect.value);
 
-
-  if (
-    voiceIndex !== "" &&
-    voices[voiceIndex]
-  ) {
-
-    utterance.voice =
-      voices[voiceIndex];
-
+    if (
+      currentVoices[index]
+    ) {
+      selectedVoice =
+        currentVoices[index];
+    }
   }
 
+  if (selectedVoice) {
+    utterance.voice =
+      selectedVoice;
+  }
+
+  const pitch =
+    exists(pitchSlider)
+      ? Number(pitchSlider.value)
+      : 1;
+
+  const rate =
+    exists(rateSlider)
+      ? Number(rateSlider.value)
+      : 1;
 
   utterance.pitch =
-    Number(pitchSlider.value);
-
+    Number.isFinite(pitch)
+      ? pitch
+      : 1;
 
   utterance.rate =
-    Number(rateSlider.value);
+    Number.isFinite(rate)
+      ? rate
+      : 1;
 
+  utterance.volume = 1;
 
   utterance.onstart = () => {
-
-    voiceStatus.textContent =
-      "SPEAKING";
-
+    setVoiceStatus("SPEAKING");
   };
-
 
   utterance.onend = () => {
-
-    voiceStatus.textContent =
-      "READY";
-
+    setVoiceStatus("READY");
   };
 
+  utterance.onerror = () => {
+    setVoiceStatus("READY");
+  };
 
   speechSynthesis.speak(
     utterance
   );
-
 }
 
-
-/* =========================================
+/* =========================================================
    VOICE CONTROLS
-========================================= */
+   ========================================================= */
 
-pitchSlider.addEventListener(
-  "input",
-  () => {
-
-    pitchValue.textContent =
-      Number(
+if (pitchSlider) {
+  pitchSlider.addEventListener(
+    "input",
+    () => {
+      setText(
+        pitchValue,
         pitchSlider.value
-      ).toFixed(1);
-
-  }
-);
-
-
-rateSlider.addEventListener(
-  "input",
-  () => {
-
-    rateValue.textContent =
-      Number(
-        rateSlider.value
-      ).toFixed(1);
-
-  }
-);
-
-
-voiceSelect.addEventListener(
-  "change",
-  () => {
-
-    selectedVoice =
-      voiceSelect.value;
-
-  }
-);
-
-
-testVoiceBtn.addEventListener(
-  "click",
-  () => {
-
-    speak(
-      "Voice protocol is functioning normally. J.A.R.V.I.S. online."
-    );
-
-  }
-);
-
-
-/* =========================================
-   STARTUP
-========================================= */
-
-async function startup() {
-
-  try {
-
-    await openDatabase();
-
-    memoryStatus.textContent =
-      "ACTIVE";
-
-  }
-
-  catch (error) {
-
-    console.error(
-      "Memory database error:",
-      error
-    );
-
-    memoryStatus.textContent =
-      "ERROR";
-
-  }
-
-
-  if (API_KEY) {
-
-    aiStatus.textContent =
-      "READY";
-
-    networkStatus.textContent =
-      "ONLINE";
-
-  }
-
-  else {
-
-    aiStatus.textContent =
-      "KEY NEEDED";
-
-    networkStatus.textContent =
-      "OFFLINE";
-
-  }
-
-
-  userInput.focus();
-
+      );
+    }
+  );
 }
 
+if (rateSlider) {
+  rateSlider.addEventListener(
+    "input",
+    () => {
+      setText(
+        rateValue,
+        rateSlider.value
+      );
+    }
+  );
+}
 
-startup();
+if (exists(testVoiceBtn)) {
+  testVoiceBtn.addEventListener(
+    "click",
+    () => {
+      speakText(
+        "J.A.R.V.I.S. voice protocol is online."
+      );
+    }
+  );
+}
+
+if ("speechSynthesis" in window) {
+  speechSynthesis.onvoiceschanged =
+    loadVoices;
+
+  loadVoices();
+}
+
+/* =========================================================
+   MEMORY DRAWER
+   ========================================================= */
+
+function openMemoryDrawer() {
+  if (exists(memoryDrawer)) {
+    memoryDrawer.classList.add(
+      "open"
+    );
+  }
+
+  if (exists(drawerOverlay)) {
+    drawerOverlay.classList.add(
+      "open"
+    );
+  }
+
+  renderMemories();
+}
+
+function closeMemoryDrawer() {
+  if (exists(memoryDrawer)) {
+    memoryDrawer.classList.remove(
+      "open"
+    );
+  }
+
+  if (exists(drawerOverlay)) {
+    drawerOverlay.classList.remove(
+      "open"
+    );
+  }
+}
+
+if (exists(memoryBtn)) {
+  memoryBtn.addEventListener(
+    "click",
+    openMemoryDrawer
+  );
+}
+
+if (exists(closeMemory)) {
+  closeMemory.addEventListener(
