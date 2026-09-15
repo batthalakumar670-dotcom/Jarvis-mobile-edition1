@@ -1,7 +1,9 @@
 /* =========================================================
-   J.A.R.V.I.S. 2.0
-   FRONTEND ENGINE
-   Gemini requests go through the secure Render backend.
+   J.A.R.V.I.S. MOBILE EDITION
+   FRONTEND ENGINE v3.0
+
+   Gemini API is NOT stored here.
+   All AI requests go through the Render backend.
    ========================================================= */
 
 "use strict";
@@ -13,978 +15,939 @@
 const BACKEND_URL = "https://jarvis-backend-wwpa.onrender.com";
 
 /* =========================================================
-   CONFIG
+   STATE
    ========================================================= */
 
-const MEMORY_DB = "JARVIS_MEMORY_DB";
-const MEMORY_STORE = "memories";
-
-let db = null;
 let conversation = [];
-let recognition = null;
+let isSending = false;
 let isListening = false;
+let recognition = null;
 let currentVoices = [];
 
 /* =========================================================
-   DOM
+   DOM HELPER
    ========================================================= */
 
-const chatBox = document.getElementById("chatBox");
-const userInput = document.getElementById("userInput");
-const sendBtn = document.getElementById("sendBtn");
-
-const micBtn = document.getElementById("micBtn");
-
-const aiStatus = document.getElementById("aiStatus");
-const networkStatus = document.getElementById("networkStatus");
-const memoryStatus = document.getElementById("memoryStatus");
-const voiceStatus = document.getElementById("voiceStatus");
-
-const memoryBtn = document.getElementById("memoryBtn");
-const memoryDrawer = document.getElementById("memoryDrawer");
-const drawerOverlay = document.getElementById("drawerOverlay");
-const closeMemory = document.getElementById("closeMemory");
-
-const memoryList = document.getElementById("memoryList");
-const memorySearch = document.getElementById("memorySearch");
-
-const saveChatBtn = document.getElementById("saveChat");
-const clearMemoryBtn = document.getElementById("clearMemory");
-
-const voiceSelect = document.getElementById("voiceSelect");
-const pitchSlider = document.getElementById("pitchSlider");
-const rateSlider = document.getElementById("rateSlider");
-
-const pitchValue = document.getElementById("pitchValue");
-const rateValue = document.getElementById("rateValue");
-
-const testVoiceBtn = document.getElementById("testVoice");
-
-/* =========================================================
-   SAFE ELEMENT HELPERS
-   ========================================================= */
-
-function exists(element) {
-  return element !== null && element !== undefined;
-}
-
-function setText(element, text) {
-  if (exists(element)) {
-    element.textContent = text;
-  }
-}
-
-function setStatus(element, text) {
-  if (exists(element)) {
-    element.textContent = text;
-  }
+function $(id) {
+    return document.getElementById(id);
 }
 
 /* =========================================================
-   UI STATUS
+   MAIN ELEMENTS
    ========================================================= */
 
-function setAIStatus(text) {
-  setStatus(aiStatus, text);
-}
+const chatBox = $("chatBox");
+const userInput = $("userInput");
+const sendBtn = $("sendBtn");
+const micBtn = $("micBtn");
 
-function setNetworkStatus(text) {
-  setStatus(networkStatus, text);
-}
-
-function setMemoryStatus(text) {
-  setStatus(memoryStatus, text);
-}
-
-function setVoiceStatus(text) {
-  setStatus(voiceStatus, text);
-}
+const aiStatus = $("aiStatus");
+const networkStatus = $("networkStatus");
+const memoryStatus = $("memoryStatus");
+const voiceStatus = $("voiceStatus");
 
 /* =========================================================
-   CHAT UI
+   INITIALIZATION
    ========================================================= */
 
-function addMessage(role, text, speak = false) {
-  if (!exists(chatBox)) return;
+document.addEventListener("DOMContentLoaded", () => {
+    initializeJarvis();
+});
 
-  const message = document.createElement("div");
-
-  message.className =
-    role === "user"
-      ? "message user-message"
-      : "message jarvis-message";
-
-  const label = document.createElement("div");
-
-  label.className = "message-label";
-  label.textContent =
-    role === "user" ? "YOU" : "J.A.R.V.I.S.";
-
-  const content = document.createElement("div");
-
-  content.className = "message-content";
-  content.textContent = text;
-
-  message.appendChild(label);
-  message.appendChild(content);
-
-  chatBox.appendChild(message);
-
-  chatBox.scrollTop = chatBox.scrollHeight;
-
-  if (speak && role !== "user") {
-    speakText(text);
-  }
+/*
+   This also runs immediately if this script is loaded
+   after the HTML has already loaded.
+*/
+if (document.readyState !== "loading") {
+    initializeJarvis();
 }
 
-function addThinkingMessage() {
-  if (!exists(chatBox)) return null;
-
-  const message = document.createElement("div");
-
-  message.className = "message jarvis-message thinking-message";
-
-  const label = document.createElement("div");
-  label.className = "message-label";
-  label.textContent = "J.A.R.V.I.S.";
-
-  const content = document.createElement("div");
-  content.className = "message-content";
-  content.textContent = "Processing...";
-
-  message.appendChild(label);
-  message.appendChild(content);
-
-  chatBox.appendChild(message);
-  chatBox.scrollTop = chatBox.scrollHeight;
-
-  return message;
-}
-
-function removeMessage(element) {
-  if (element && element.parentNode) {
-    element.parentNode.removeChild(element);
-  }
-}
-
-/* =========================================================
-   CONVERSATION
-   ========================================================= */
-
-function addConversation(role, text) {
-  conversation.push({
-    role,
-    text,
-    time: Date.now()
-  });
-
-  /* Keep browser memory lightweight */
-  if (conversation.length > 30) {
-    conversation = conversation.slice(-30);
-  }
-}
-
-function getRecentConversation() {
-  return conversation
-    .slice(-10)
-    .map(item => {
-      const name = item.role === "user" ? "User" : "JARVIS";
-      return `${name}: ${item.text}`;
-    })
-    .join("\n");
-}
-
-/* =========================================================
-   INDEXEDDB MEMORY
-   ========================================================= */
-
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      reject(new Error("IndexedDB is not supported."));
-      return;
-    }
-
-    const request = indexedDB.open(MEMORY_DB, 1);
-
-    request.onupgradeneeded = event => {
-      const database = event.target.result;
-
-      if (!database.objectStoreNames.contains(MEMORY_STORE)) {
-        const store = database.createObjectStore(
-          MEMORY_STORE,
-          {
-            keyPath: "id",
-            autoIncrement: true
-          }
-        );
-
-        store.createIndex(
-          "createdAt",
-          "createdAt",
-          { unique: false }
-        );
-      }
-    };
-
-    request.onsuccess = event => {
-      db = event.target.result;
-      resolve(db);
-    };
-
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
-}
-
-function saveMemory(title, content) {
-  return new Promise((resolve, reject) => {
-    if (!db) {
-      reject(new Error("Memory database unavailable."));
-      return;
-    }
-
-    const transaction = db.transaction(
-      MEMORY_STORE,
-      "readwrite"
-    );
-
-    const store = transaction.objectStore(MEMORY_STORE);
-
-    const request = store.add({
-      title: title || "J.A.R.V.I.S. Memory",
-      content: content || "",
-      createdAt: Date.now()
-    });
-
-    request.onsuccess = () => resolve(request.result);
-
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function getMemories() {
-  return new Promise((resolve, reject) => {
-    if (!db) {
-      resolve([]);
-      return;
-    }
-
-    const transaction = db.transaction(
-      MEMORY_STORE,
-      "readonly"
-    );
-
-    const store = transaction.objectStore(MEMORY_STORE);
-
-    const request = store.getAll();
-
-    request.onsuccess = () => {
-      const memories = request.result || [];
-
-      memories.sort(
-        (a, b) => b.createdAt - a.createdAt
-      );
-
-      resolve(memories);
-    };
-
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
-}
-
-function deleteMemory(id) {
-  return new Promise((resolve, reject) => {
-    if (!db) {
-      reject(new Error("Memory database unavailable."));
-      return;
-    }
-
-    const transaction = db.transaction(
-      MEMORY_STORE,
-      "readwrite"
-    );
-
-    const store = transaction.objectStore(MEMORY_STORE);
-
-    const request = store.delete(id);
-
-    request.onsuccess = () => resolve();
-
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function clearAllMemories() {
-  return new Promise((resolve, reject) => {
-    if (!db) {
-      resolve();
-      return;
-    }
-
-    const transaction = db.transaction(
-      MEMORY_STORE,
-      "readwrite"
-    );
-
-    const store = transaction.objectStore(MEMORY_STORE);
-
-    const request = store.clear();
-
-    request.onsuccess = () => resolve();
-
-    request.onerror = () => reject(request.error);
-  });
-}
-
-/* =========================================================
-   MEMORY CONTEXT
-   ========================================================= */
-
-async function getMemoryContext() {
-  try {
-    const memories = await getMemories();
-
-    return memories
-      .slice(0, 10)
-      .map(memory => {
-        return `${memory.title}: ${memory.content}`;
-      })
-      .join("\n");
-  } catch (error) {
-    console.warn("Memory context error:", error);
-    return "";
-  }
-}
-
-/* =========================================================
-   RENDER MEMORY LIST
-   ========================================================= */
-
-async function renderMemories(filter = "") {
-  if (!exists(memoryList)) return;
-
-  try {
-    const memories = await getMemories();
-
-    const search = filter
-      .trim()
-      .toLowerCase();
-
-    const filtered = memories.filter(memory => {
-      if (!search) return true;
-
-      return (
-        memory.title.toLowerCase().includes(search) ||
-        memory.content.toLowerCase().includes(search)
-      );
-    });
-
-    memoryList.innerHTML = "";
-
-    if (filtered.length === 0) {
-      const empty = document.createElement("div");
-
-      empty.className = "memory-empty";
-      empty.textContent = "No memories found.";
-
-      memoryList.appendChild(empty);
-      return;
-    }
-
-    filtered.forEach(memory => {
-      const item = document.createElement("div");
-
-      item.className = "memory-item";
-
-      const title = document.createElement("div");
-
-      title.className = "memory-title";
-      title.textContent = memory.title;
-
-      const content = document.createElement("div");
-
-      content.className = "memory-content";
-      content.textContent = memory.content;
-
-      const date = document.createElement("div");
-
-      date.className = "memory-date";
-
-      date.textContent = new Date(
-        memory.createdAt
-      ).toLocaleString();
-
-      const deleteButton = document.createElement("button");
-
-      deleteButton.className = "memory-delete";
-      deleteButton.textContent = "DELETE";
-
-      deleteButton.addEventListener(
-        "click",
-        async () => {
-          await deleteMemory(memory.id);
-          await renderMemories(
-            exists(memorySearch)
-              ? memorySearch.value
-              : ""
-          );
-        }
-      );
-
-      item.appendChild(title);
-      item.appendChild(content);
-      item.appendChild(date);
-      item.appendChild(deleteButton);
-
-      memoryList.appendChild(item);
-    });
-
-    setMemoryStatus(`${filtered.length} MEMORY`);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-/* =========================================================
-   GEMINI → RENDER BACKEND
-   ========================================================= */
-
-async function callGemini(prompt) {
-  const response = await fetch(
-    `${BACKEND_URL}/api/chat`,
-    {
-      method: "POST",
-
-      headers: {
-        "Content-Type": "application/json"
-      },
-
-      body: JSON.stringify({
-        message: prompt
-      })
-    }
-  );
-
-  let data = {};
-
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error(
-      "J.A.R.V.I.S. backend returned an invalid response."
-    );
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data.error ||
-      `Backend error: ${response.status}`
-    );
-  }
-
-  if (!data.reply) {
-    throw new Error(
-      "J.A.R.V.I.S. received no AI response."
-    );
-  }
-
-  return data.reply.trim();
-}
-
-/* =========================================================
-   ASK JARVIS
-   ========================================================= */
-
-async function askJarvis(question) {
-  if (!question || !question.trim()) {
-    return;
-  }
-
-  const cleanQuestion = question.trim();
-
-  addMessage(
-    "user",
-    cleanQuestion,
-    false
-  );
-
-  addConversation(
-    "user",
-    cleanQuestion
-  );
-
-  if (exists(userInput)) {
-    userInput.value = "";
-  }
-
-  setAIStatus("THINKING");
-  setNetworkStatus("CONNECTING");
-
-  const thinking = addThinkingMessage();
-
-  try {
-    const memory = await getMemoryContext();
-
-    const recentConversation =
-      getRecentConversation();
-
-    const prompt = `
-You are J.A.R.V.I.S., a futuristic personal AI assistant.
-
-Personality:
-- Intelligent
-- Calm
-- Helpful
-- Clear
-- Slightly futuristic
-- Natural conversational style
-
-Important:
-- Never claim you performed an action unless the connected system actually performed it.
-- If you cannot control something yet, clearly say so.
-- Keep answers reasonably concise unless the user asks for detail.
-
-Saved memory:
-${memory || "No saved memories."}
-
-Recent conversation:
-${recentConversation || "No previous conversation."}
-
-Current user request:
-${cleanQuestion}
-`;
-
-    const reply = await callGemini(prompt);
-
-    removeMessage(thinking);
-
-    addMessage(
-      "assistant",
-      reply,
-      true
-    );
-
-    addConversation(
-      "assistant",
-      reply
-    );
-
-    setAIStatus("ONLINE");
-    setNetworkStatus("CONNECTED");
-
-  } catch (error) {
-    console.error(
-      "J.A.R.V.I.S. error:",
-      error
-    );
-
-    removeMessage(thinking);
-
-    let message =
-      "I am unable to connect to my AI core right now.";
-
-    if (
-      error.message &&
-      error.message.length < 250
-    ) {
-      message += `\n\nError: ${error.message}`;
-    }
-
-    addMessage(
-      "assistant",
-      message,
-      false
-    );
-
-    setAIStatus("ERROR");
-    setNetworkStatus("OFFLINE");
-  }
+let initialized = false;
+
+function initializeJarvis() {
+    if (initialized) return;
+    initialized = true;
+
+    console.log("J.A.R.V.I.S. frontend starting...");
+
+    setupSendButton();
+    setupInput();
+    setupQuickCommands();
+    setupVoiceRecognition();
+    setupSpeechSynthesis();
+    setupMemory();
+    checkBackend();
+
+    console.log("J.A.R.V.I.S. frontend ready.");
 }
 
 /* =========================================================
    SEND BUTTON
    ========================================================= */
 
-function sendCurrentMessage() {
-  if (!exists(userInput)) return;
+function setupSendButton() {
 
-  const message = userInput.value.trim();
-
-  if (!message) return;
-
-  askJarvis(message);
-}
-
-if (exists(sendBtn)) {
-  sendBtn.addEventListener(
-    "click",
-    sendCurrentMessage
-  );
-}
-
-if (exists(userInput)) {
-  userInput.addEventListener(
-    "keydown",
-    event => {
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey
-      ) {
-        event.preventDefault();
-        sendCurrentMessage();
-      }
+    if (!sendBtn) {
+        console.warn("Send button not found.");
+        return;
     }
-  );
+
+    sendBtn.addEventListener("click", function(event) {
+        event.preventDefault();
+        sendMessage();
+    });
+}
+
+/* =========================================================
+   TEXT INPUT
+   ========================================================= */
+
+function setupInput() {
+
+    if (!userInput) {
+        console.warn("User input not found.");
+        return;
+    }
+
+    userInput.addEventListener("keydown", function(event) {
+
+        /*
+           Enter = send
+           Shift + Enter = new line
+        */
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+        }
+    });
+}
+
+/* =========================================================
+   SEND MESSAGE
+   ========================================================= */
+
+async function sendMessage() {
+
+    if (isSending) return;
+
+    if (!userInput) {
+        console.error("userInput element missing.");
+        return;
+    }
+
+    const message = userInput.value.trim();
+
+    if (!message) {
+        return;
+    }
+
+    isSending = true;
+
+    /*
+       Get message before clearing input.
+    */
+    userInput.value = "";
+
+    /*
+       Show user message.
+    */
+    addMessage(message, "user");
+
+    /*
+       Show thinking message.
+    */
+    const thinkingElement = addThinkingMessage();
+
+    setSendingState(true);
+
+    try {
+
+        console.log("Sending message to J.A.R.V.I.S. backend...");
+
+        const response = await fetch(`${BACKEND_URL}/api/chat`, {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                message: message,
+                context: buildContext()
+            })
+        });
+
+        console.log("Backend response:", response.status);
+
+        /*
+           Try to read JSON.
+        */
+        let data = null;
+
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            throw new Error(
+                `Backend returned an invalid response (${response.status}).`
+            );
+        }
+
+        console.log("Backend data:", data);
+
+        /*
+           Remove thinking indicator.
+        */
+        removeThinkingMessage(thinkingElement);
+
+        /*
+           Backend error.
+        */
+        if (!response.ok) {
+
+            const errorMessage =
+                data?.error ||
+                `Backend error: ${response.status}`;
+
+            addMessage(
+                `⚠️ ${errorMessage}`,
+                "assistant",
+                true
+            );
+
+            speak(
+                "I encountered a backend error. Please try again."
+            );
+
+            return;
+        }
+
+        /*
+           Successful response.
+        */
+        if (data && data.reply) {
+
+            const reply = String(data.reply).trim();
+
+            addMessage(reply, "assistant");
+
+            /*
+               Save conversation.
+            */
+            conversation.push({
+                role: "user",
+                content: message
+            });
+
+            conversation.push({
+                role: "assistant",
+                content: reply
+            });
+
+            saveConversation();
+
+            /*
+               Voice output.
+            */
+            speak(reply);
+
+        } else {
+
+            addMessage(
+                "⚠️ J.A.R.V.I.S. received an empty response.",
+                "assistant",
+                true
+            );
+        }
+
+    } catch (error) {
+
+        console.error("J.A.R.V.I.S. request failed:", error);
+
+        removeThinkingMessage(thinkingElement);
+
+        let messageText =
+            "⚠️ I could not connect to the J.A.R.V.I.S. backend.";
+
+        if (error && error.message) {
+            messageText += `\n\n${error.message}`;
+        }
+
+        addMessage(
+            messageText,
+            "assistant",
+            true
+        );
+
+        /*
+           Update network status.
+        */
+        setStatus(networkStatus, "OFFLINE");
+
+    } finally {
+
+        isSending = false;
+        setSendingState(false);
+
+        /*
+           Put cursor back in input.
+        */
+        if (userInput) {
+            userInput.focus();
+        }
+    }
+}
+
+/* =========================================================
+   ADD MESSAGE
+   ========================================================= */
+
+function addMessage(text, sender = "assistant", isError = false) {
+
+    if (!chatBox) {
+        console.error("chatBox element missing.");
+        return null;
+    }
+
+    const messageWrapper = document.createElement("div");
+
+    messageWrapper.className =
+        sender === "user"
+            ? "message user-message"
+            : "message assistant-message";
+
+    if (isError) {
+        messageWrapper.classList.add("error-message");
+    }
+
+    const messageContent = document.createElement("div");
+
+    messageContent.className = "message-content";
+
+    /*
+       Preserve line breaks safely.
+    */
+    const lines = String(text).split("\n");
+
+    lines.forEach((line, index) => {
+
+        const span = document.createElement("span");
+
+        span.textContent = line;
+
+        messageContent.appendChild(span);
+
+        if (index < lines.length - 1) {
+            messageContent.appendChild(
+                document.createElement("br")
+            );
+        }
+    });
+
+    messageWrapper.appendChild(messageContent);
+
+    chatBox.appendChild(messageWrapper);
+
+    scrollChatToBottom();
+
+    return messageWrapper;
+}
+
+/* =========================================================
+   THINKING MESSAGE
+   ========================================================= */
+
+function addThinkingMessage() {
+
+    if (!chatBox) return null;
+
+    const wrapper = document.createElement("div");
+
+    wrapper.className =
+        "message assistant-message jarvis-thinking";
+
+    const content = document.createElement("div");
+
+    content.className = "message-content";
+
+    content.innerHTML =
+        "J.A.R.V.I.S. is thinking<span class=\"thinking-dots\">...</span>";
+
+    wrapper.appendChild(content);
+
+    chatBox.appendChild(wrapper);
+
+    scrollChatToBottom();
+
+    return wrapper;
+}
+
+/* =========================================================
+   REMOVE THINKING MESSAGE
+   ========================================================= */
+
+function removeThinkingMessage(element) {
+
+    if (!element) return;
+
+    if (element.parentNode) {
+        element.parentNode.removeChild(element);
+    }
+}
+
+/* =========================================================
+   SCROLL CHAT
+   ========================================================= */
+
+function scrollChatToBottom() {
+
+    if (!chatBox) return;
+
+    setTimeout(() => {
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 50);
+}
+
+/* =========================================================
+   BUTTON STATE
+   ========================================================= */
+
+function setSendingState(sending) {
+
+    if (!sendBtn) return;
+
+    if (sending) {
+
+        sendBtn.disabled = true;
+
+        sendBtn.setAttribute(
+            "aria-label",
+            "J.A.R.V.I.S. is processing"
+        );
+
+        sendBtn.classList.add("sending");
+
+    } else {
+
+        sendBtn.disabled = false;
+
+        sendBtn.setAttribute(
+            "aria-label",
+            "Send message"
+        );
+
+        sendBtn.classList.remove("sending");
+    }
+}
+
+/* =========================================================
+   BACKEND HEALTH CHECK
+   ========================================================= */
+
+async function checkBackend() {
+
+    console.log("Checking J.A.R.V.I.S. backend...");
+
+    try {
+
+        const response = await fetch(
+            `${BACKEND_URL}/api/health`,
+            {
+                method: "GET",
+                cache: "no-store"
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                `Health check failed: ${response.status}`
+            );
+        }
+
+        const data = await response.json();
+
+        console.log("Backend health:", data);
+
+        setStatus(networkStatus, "ONLINE");
+
+        if (data.online) {
+            setStatus(aiStatus, "READY");
+        }
+
+        if (data.aiConfigured) {
+            setStatus(aiStatus, "READY");
+        } else {
+            setStatus(aiStatus, "NOT CONFIGURED");
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Backend health check failed:",
+            error
+        );
+
+        setStatus(networkStatus, "OFFLINE");
+
+    }
+}
+
+/* =========================================================
+   STATUS HELPER
+   ========================================================= */
+
+function setStatus(element, text) {
+
+    if (!element) return;
+
+    /*
+       Support both normal elements and inputs.
+    */
+    if (
+        element.tagName === "INPUT" ||
+        element.tagName === "TEXTAREA"
+    ) {
+        element.value = text;
+    } else {
+        element.textContent = text;
+    }
+
+    element.setAttribute(
+        "data-status",
+        String(text).toLowerCase()
+    );
 }
 
 /* =========================================================
    QUICK COMMANDS
    ========================================================= */
 
-document.addEventListener(
-  "click",
-  event => {
-    const button =
-      event.target.closest(
-        "[data-command]"
-      );
+function setupQuickCommands() {
 
-    if (!button) return;
+    const buttons =
+        document.querySelectorAll("[data-command]");
 
-    const command =
-      button.getAttribute(
-        "data-command"
-      );
+    buttons.forEach(button => {
 
-    if (command) {
-      askJarvis(command);
+        button.addEventListener("click", event => {
+
+            event.preventDefault();
+
+            const command =
+                button.getAttribute("data-command");
+
+            if (!command) return;
+
+            /*
+               Put command into input.
+            */
+            if (userInput) {
+                userInput.value = command;
+                userInput.focus();
+            }
+
+            /*
+               Send immediately.
+            */
+            sendMessage();
+        });
+    });
+}
+
+/* =========================================================
+   BUILD CONTEXT
+   ========================================================= */
+
+function buildContext() {
+
+    /*
+       Keep the context short.
+       This prevents huge requests.
+    */
+
+    const recentConversation =
+        conversation.slice(-10);
+
+    if (!recentConversation.length) {
+        return "No previous conversation.";
     }
-  }
-);
+
+    return recentConversation
+        .map(item => {
+            return `${item.role}: ${item.content}`;
+        })
+        .join("\n");
+}
+
+/* =========================================================
+   MEMORY
+   ========================================================= */
+
+const MEMORY_KEY = "JARVIS_MEMORY";
+
+function setupMemory() {
+
+    setStatus(memoryStatus, "ACTIVE");
+
+    try {
+
+        const saved =
+            localStorage.getItem(MEMORY_KEY);
+
+        if (saved) {
+
+            console.log(
+                "J.A.R.V.I.S. memory restored."
+            );
+
+        } else {
+
+            localStorage.setItem(
+                MEMORY_KEY,
+                JSON.stringify({
+                    created: new Date().toISOString()
+                })
+            );
+        }
+
+    } catch (error) {
+
+        console.warn(
+            "Memory storage unavailable:",
+            error
+        );
+
+        setStatus(memoryStatus, "LIMITED");
+    }
+}
+
+/* =========================================================
+   SAVE CONVERSATION
+   ========================================================= */
+
+function saveConversation() {
+
+    try {
+
+        /*
+           Only save the last 30 messages.
+        */
+        const data =
+            conversation.slice(-30);
+
+        localStorage.setItem(
+            "JARVIS_CONVERSATION",
+            JSON.stringify(data)
+        );
+
+    } catch (error) {
+
+        console.warn(
+            "Could not save conversation:",
+            error
+        );
+    }
+}
+
+/* =========================================================
+   LOAD CONVERSATION
+   ========================================================= */
+
+function loadConversation() {
+
+    try {
+
+        const saved =
+            localStorage.getItem(
+                "JARVIS_CONVERSATION"
+            );
+
+        if (!saved) return;
+
+        const data = JSON.parse(saved);
+
+        if (!Array.isArray(data)) return;
+
+        conversation = data;
+
+    } catch (error) {
+
+        console.warn(
+            "Could not load conversation:",
+            error
+        );
+    }
+}
 
 /* =========================================================
    VOICE RECOGNITION
    ========================================================= */
 
-function initializeSpeechRecognition() {
-  const SpeechRecognition =
-    window.SpeechRecognition ||
-    window.webkitSpeechRecognition;
+function setupVoiceRecognition() {
 
-  if (!SpeechRecognition) {
-    setVoiceStatus("NOT SUPPORTED");
-    return;
-  }
+    const SpeechRecognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
 
-  recognition =
-    new SpeechRecognition();
+    if (!SpeechRecognition) {
 
-  recognition.continuous = false;
-  recognition.interimResults = false;
+        console.warn(
+            "Speech recognition is not supported."
+        );
 
-  recognition.lang = "en-IN";
+        setStatus(voiceStatus, "UNAVAILABLE");
 
-  recognition.onstart = () => {
-    isListening = true;
-
-    setVoiceStatus("LISTENING");
-
-    if (exists(micBtn)) {
-      micBtn.classList.add(
-        "listening"
-      );
+        return;
     }
-  };
 
-  recognition.onresult = event => {
-    const result =
-      event.results[
-        event.results.length - 1
-      ];
+    recognition = new SpeechRecognition();
 
-    const text =
-      result[0].transcript.trim();
+    recognition.continuous = false;
+    recognition.interimResults = true;
 
-    if (text) {
-      if (exists(userInput)) {
-        userInput.value = text;
-      }
+    /*
+       Telugu + English.
+       Browser may choose the best available language.
+    */
+    recognition.lang = "en-IN";
 
-      askJarvis(text);
+    recognition.onstart = () => {
+
+        isListening = true;
+
+        setStatus(voiceStatus, "LISTENING");
+
+        if (micBtn) {
+            micBtn.classList.add("active");
+        }
+
+        console.log("Voice recognition started.");
+    };
+
+    recognition.onresult = event => {
+
+        let transcript = "";
+
+        for (
+            let i = event.resultIndex;
+            i < event.results.length;
+            i++
+        ) {
+
+            transcript +=
+                event.results[i][0].transcript;
+        }
+
+        if (userInput) {
+            userInput.value = transcript.trim();
+        }
+    };
+
+    recognition.onerror = event => {
+
+        console.error(
+            "Voice recognition error:",
+            event.error
+        );
+
+        isListening = false;
+
+        setStatus(voiceStatus, "READY");
+
+        if (micBtn) {
+            micBtn.classList.remove("active");
+        }
+    };
+
+    recognition.onend = () => {
+
+        isListening = false;
+
+        setStatus(voiceStatus, "READY");
+
+        if (micBtn) {
+            micBtn.classList.remove("active");
+        }
+
+        /*
+           Automatically send recognized speech.
+        */
+        if (
+            userInput &&
+            userInput.value.trim()
+        ) {
+            sendMessage();
+        }
+    };
+
+    if (micBtn) {
+
+        micBtn.addEventListener("click", event => {
+
+            event.preventDefault();
+
+            toggleVoiceRecognition();
+
+        });
     }
-  };
 
-  recognition.onerror = event => {
-    console.warn(
-      "Speech recognition:",
-      event.error
-    );
-
-    isListening = false;
-
-    setVoiceStatus("READY");
-
-    if (exists(micBtn)) {
-      micBtn.classList.remove(
-        "listening"
-      );
-    }
-  };
-
-  recognition.onend = () => {
-    isListening = false;
-
-    setVoiceStatus("READY");
-
-    if (exists(micBtn)) {
-      micBtn.classList.remove(
-        "listening"
-      );
-    }
-  };
-}
-
-function toggleListening() {
-  if (!recognition) {
-    initializeSpeechRecognition();
-  }
-
-  if (!recognition) {
-    alert(
-      "Voice recognition is not supported by this browser."
-    );
-    return;
-  }
-
-  if (isListening) {
-    recognition.stop();
-    return;
-  }
-
-  try {
-    recognition.start();
-  } catch (error) {
-    console.warn(error);
-  }
-}
-
-if (exists(micBtn)) {
-  micBtn.addEventListener(
-    "click",
-    toggleListening
-  );
+    setStatus(voiceStatus, "READY");
 }
 
 /* =========================================================
-   TEXT TO SPEECH
+   TOGGLE VOICE
    ========================================================= */
+
+function toggleVoiceRecognition() {
+
+    if (!recognition) {
+
+        console.warn(
+            "Voice recognition unavailable."
+        );
+
+        return;
+    }
+
+    if (isListening) {
+
+        recognition.stop();
+
+    } else {
+
+        try {
+
+            recognition.start();
+
+        } catch (error) {
+
+            console.warn(
+                "Could not start recognition:",
+                error
+            );
+        }
+    }
+}
+
+/* =========================================================
+   SPEECH SYNTHESIS
+   ========================================================= */
+
+function setupSpeechSynthesis() {
+
+    if (!("speechSynthesis" in window)) {
+
+        setStatus(voiceStatus, "LIMITED");
+
+        return;
+    }
+
+    loadVoices();
+
+    window.speechSynthesis.onvoiceschanged =
+        loadVoices;
+}
 
 function loadVoices() {
-  if (!("speechSynthesis" in window)) {
-    setVoiceStatus("NOT SUPPORTED");
-    return;
-  }
 
-  currentVoices =
-    speechSynthesis.getVoices();
+    if (!("speechSynthesis" in window)) return;
 
-  if (!exists(voiceSelect)) return;
+    currentVoices =
+        window.speechSynthesis.getVoices();
 
-  voiceSelect.innerHTML = "";
-
-  currentVoices.forEach(
-    (voice, index) => {
-      const option =
-        document.createElement("option");
-
-      option.value = index;
-
-      option.textContent =
-        `${voice.name} — ${voice.lang}`;
-
-      voiceSelect.appendChild(
-        option
-      );
+    if (currentVoices.length) {
+        setStatus(voiceStatus, "READY");
     }
-  );
-
-  const preferredIndex =
-    currentVoices.findIndex(
-      voice =>
-        voice.lang
-          .toLowerCase()
-          .includes("en-in")
-    );
-
-  if (preferredIndex >= 0) {
-    voiceSelect.value =
-      preferredIndex;
-  }
-}
-
-function speakText(text) {
-  if (
-    !text ||
-    !("speechSynthesis" in window)
-  ) {
-    return;
-  }
-
-  speechSynthesis.cancel();
-
-  const utterance =
-    new SpeechSynthesisUtterance(
-      text
-    );
-
-  let selectedVoice = null;
-
-  if (exists(voiceSelect)) {
-    const index =
-      Number(voiceSelect.value);
-
-    if (
-      currentVoices[index]
-    ) {
-      selectedVoice =
-        currentVoices[index];
-    }
-  }
-
-  if (selectedVoice) {
-    utterance.voice =
-      selectedVoice;
-  }
-
-  const pitch =
-    exists(pitchSlider)
-      ? Number(pitchSlider.value)
-      : 1;
-
-  const rate =
-    exists(rateSlider)
-      ? Number(rateSlider.value)
-      : 1;
-
-  utterance.pitch =
-    Number.isFinite(pitch)
-      ? pitch
-      : 1;
-
-  utterance.rate =
-    Number.isFinite(rate)
-      ? rate
-      : 1;
-
-  utterance.volume = 1;
-
-  utterance.onstart = () => {
-    setVoiceStatus("SPEAKING");
-  };
-
-  utterance.onend = () => {
-    setVoiceStatus("READY");
-  };
-
-  utterance.onerror = () => {
-    setVoiceStatus("READY");
-  };
-
-  speechSynthesis.speak(
-    utterance
-  );
 }
 
 /* =========================================================
-   VOICE CONTROLS
+   SPEAK
    ========================================================= */
 
-if (pitchSlider) {
-  pitchSlider.addEventListener(
-    "input",
-    () => {
-      setText(
-        pitchValue,
-        pitchSlider.value
-      );
+function speak(text) {
+
+    if (!("speechSynthesis" in window)) {
+        return;
     }
-  );
-}
 
-if (rateSlider) {
-  rateSlider.addEventListener(
-    "input",
-    () => {
-      setText(
-        rateValue,
-        rateSlider.value
-      );
+    if (!text) return;
+
+    /*
+       Stop previous speech.
+    */
+    window.speechSynthesis.cancel();
+
+    /*
+       Remove markdown symbols so speech sounds natural.
+    */
+    const cleanText =
+        String(text)
+            .replace(/[*_#>`~]/g, "")
+            .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+            .trim();
+
+    if (!cleanText) return;
+
+    const utterance =
+        new SpeechSynthesisUtterance(cleanText);
+
+    /*
+       Prefer Indian English voice.
+    */
+    let voice =
+        currentVoices.find(v =>
+            v.lang &&
+            v.lang.toLowerCase() === "en-in"
+        );
+
+    if (!voice) {
+
+        voice =
+            currentVoices.find(v =>
+                v.lang &&
+                v.lang.toLowerCase().startsWith("en")
+            );
     }
-  );
-}
 
-if (exists(testVoiceBtn)) {
-  testVoiceBtn.addEventListener(
-    "click",
-    () => {
-      speakText(
-        "J.A.R.V.I.S. voice protocol is online."
-      );
+    if (voice) {
+        utterance.voice = voice;
     }
-  );
-}
 
-if ("speechSynthesis" in window) {
-  speechSynthesis.onvoiceschanged =
-    loadVoices;
+    utterance.lang = "en-IN";
 
-  loadVoices();
+    utterance.rate = 0.95;
+    utterance.pitch = 0.9;
+    utterance.volume = 1;
+
+    utterance.onstart = () => {
+        setStatus(voiceStatus, "SPEAKING");
+    };
+
+    utterance.onend = () => {
+        setStatus(voiceStatus, "READY");
+    };
+
+    utterance.onerror = () => {
+        setStatus(voiceStatus, "READY");
+    };
+
+    window.speechSynthesis.speak(utterance);
 }
 
 /* =========================================================
-   MEMORY DRAWER
+   STOP SPEAKING
    ========================================================= */
 
-function openMemoryDrawer() {
-  if (exists(memoryDrawer)) {
-    memoryDrawer.classList.add(
-      "open"
-    );
-  }
+function stopSpeaking() {
 
-  if (exists(drawerOverlay)) {
-    drawerOverlay.classList.add(
-      "open"
-    );
-  }
+    if (!("speechSynthesis" in window)) {
+        return;
+    }
 
-  renderMemories();
+    window.speechSynthesis.cancel();
+
+    setStatus(voiceStatus, "READY");
 }
 
-function closeMemoryDrawer() {
-  if (exists(memoryDrawer)) {
-    memoryDrawer.classList.remove(
-      "open"
-    );
-  }
-
-  if (exists(drawerOverlay)) {
-    drawerOverlay.classList.remove(
-      "open"
-    );
-  }
-}
-
-if (exists(memoryBtn)) {
-  memoryBtn.addEventListener(
-    "click",
-    openMemoryDrawer
-  );
-}
-
-if (exists(closeMemory)) {
-  closeMemory.addEventListener(
+/* =========================================================
+   GLOBAL JARVIS COMMANDS
+   ===========================
