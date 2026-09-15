@@ -98,10 +98,8 @@ Answer naturally and concisely.
     console.error("JARVIS AI ERROR:", error);
 
     res.status(500).json({
-      success: false,
-      error: "J.A.R.V.I.S. could not process the request."
-    });
-  }
+  success: false,
+  error: error?.message || "J.A.R.V.I.S. could not process the request."
 });
 
 app.listen(PORT, () => {
