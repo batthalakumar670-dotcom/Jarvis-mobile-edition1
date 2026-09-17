@@ -204,7 +204,179 @@ async function sendMessage() {
         "USER MESSAGE:",
         message
     );
+    /* =====================================================
+       SMART LOCAL COMMANDS
+       ===================================================== */
 
+    const command =
+        message.toLowerCase().trim();
+
+
+    /* STOP SPEAKING */
+
+    if (
+        command === "stop speaking" ||
+        command === "jarvis stop speaking" ||
+        command === "stop"
+    ) {
+
+        if (
+            "speechSynthesis" in window
+        ) {
+
+            window.speechSynthesis.cancel();
+
+        }
+
+        addMessage(
+            "Voice output stopped.",
+            "assistant"
+        );
+
+        setStatus(
+            voiceStatus,
+            "READY"
+        );
+
+        return;
+    }
+
+
+    /* CLEAR MEMORY */
+
+    if (
+        command === "clear memory" ||
+        command === "clear jarvis memory"
+    ) {
+
+        conversation = [];
+
+        try {
+
+            localStorage.removeItem(
+                "JARVIS_CONVERSATION"
+            );
+
+        } catch (error) {
+
+            console.warn(error);
+
+        }
+
+        addMessage(
+            "Memory cleared successfully.",
+            "assistant"
+        );
+
+        setStatus(
+            memoryStatus,
+            "ACTIVE"
+        );
+
+        return;
+    }
+
+
+    /* CURRENT TIME */
+
+    if (
+        command === "what time is it" ||
+        command === "what is the time"
+    ) {
+
+        const now =
+            new Date();
+
+        const time =
+            now.toLocaleTimeString(
+                "en-IN",
+                {
+                    hour: "numeric",
+                    minute: "2-digit"
+                }
+            );
+
+        const reply =
+            `The current time is ${time}.`;
+
+        addMessage(
+            reply,
+            "assistant"
+        );
+
+        speak(reply);
+
+        return;
+    }
+
+
+    /* CURRENT DATE */
+
+    if (
+        command === "what is today's date" ||
+        command === "what is the date today" ||
+        command === "today's date"
+    ) {
+
+        const now =
+            new Date();
+
+        const date =
+            now.toLocaleDateString(
+                "en-IN",
+                {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric"
+                }
+            );
+
+        const reply =
+            `Today is ${date}.`;
+
+        addMessage(
+            reply,
+            "assistant"
+        );
+
+        speak(reply);
+
+        return;
+    }
+
+
+    /* OPEN YOUTUBE */
+
+    if (
+        command === "open youtube" ||
+        command === "jarvis open youtube"
+    ) {
+
+        const reply =
+            "Opening YouTube.";
+
+        addMessage(
+            reply,
+            "assistant"
+        );
+
+        speak(reply);
+
+        setTimeout(
+            function() {
+
+                window.open(
+                    "https://www.youtube.com",
+                    "_blank"
+                );
+
+            },
+            700
+        );
+
+        return;
+    }
     isSending = true;
 
     userInput.value = "";
