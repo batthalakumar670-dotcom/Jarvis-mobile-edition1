@@ -869,12 +869,15 @@ function saveConversation() {
    VOICE RECOGNITION
    ========================================================= */
 
+/* =========================================================
+   VOICE RECOGNITION + HEY JARVIS
+   ========================================================= */
+
 function setupVoice() {
 
     const SpeechRecognition =
         window.SpeechRecognition ||
         window.webkitSpeechRecognition;
-
 
     if (!SpeechRecognition) {
 
@@ -886,33 +889,25 @@ function setupVoice() {
         return;
     }
 
-
     recognition =
         new SpeechRecognition();
 
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-IN";
 
-    recognition.continuous =
-        false;
-
-    recognition.interimResults =
-        true;
-
-    recognition.lang =
-        "en-IN";
-
+    let wakeMode = false;
+    let commandMode = false;
 
     recognition.onstart =
         function() {
 
-            isListening =
-                true;
-
+            isListening = true;
 
             setStatus(
                 voiceStatus,
                 "LISTENING"
             );
-
 
             if (micBtn) {
 
@@ -921,7 +916,6 @@ function setupVoice() {
                 );
 
             }
-
         };
 
 
@@ -930,28 +924,89 @@ function setupVoice() {
 
             let text = "";
 
-
             for (
-                let i =
-                    event.resultIndex;
-
-                i <
-                event.results.length;
-
+                let i = event.resultIndex;
+                i < event.results.length;
                 i++
             ) {
 
                 text +=
                     event.results[i][0]
                         .transcript;
+            }
 
+            text =
+                text.trim();
+
+            if (!text) return;
+
+            const lowerText =
+                text.toLowerCase();
+
+
+            /* =========================================
+               WAIT FOR "HEY JARVIS"
+               ========================================= */
+
+            if (!wakeMode) {
+
+                if (
+                    lowerText.includes("hey jarvis") ||
+                    lowerText.includes("hey jarvis")
+                ) {
+
+                    wakeMode = true;
+                    commandMode = true;
+
+                    const command =
+                        text
+                            .replace(
+                                /hey jarvis/i,
+                                ""
+                            )
+                            .trim();
+
+                    if (command) {
+
+                        if (userInput) {
+
+                            userInput.value =
+                                command;
+
+                        }
+
+                        sendMessage();
+
+                    } else {
+
+                        setStatus(
+                            voiceStatus,
+                            "READY"
+                        );
+
+                        speak(
+                            "Yes, I'm listening."
+                        );
+                    }
+
+                }
+
+                return;
             }
 
 
-            if (userInput) {
+            /* =========================================
+               COMMAND MODE
+               ========================================= */
 
-                userInput.value =
-                    text.trim();
+            if (commandMode) {
+
+                if (userInput) {
+
+                    userInput.value =
+                        text;
+
+                }
 
             }
 
@@ -972,15 +1027,7 @@ function setupVoice() {
     recognition.onend =
         function() {
 
-            isListening =
-                false;
-
-
-            setStatus(
-                voiceStatus,
-                "READY"
-            );
-
+            isListening = false;
 
             if (micBtn) {
 
@@ -991,17 +1038,48 @@ function setupVoice() {
             }
 
 
-            if (
-                userInput &&
-                userInput.value.trim()
-            ) {
+            /*
+               Automatically restart while
+               hands-free mode is active.
+            */
 
-                sendMessage();
+            if (wakeMode) {
+
+                setTimeout(
+                    function() {
+
+                        try {
+
+                            recognition.start();
+
+                        } catch (error) {
+
+                            console.warn(
+                                "Voice restart:",
+                                error
+                            );
+
+                        }
+
+                    },
+                    500
+                );
+
+            } else {
+
+                setStatus(
+                    voiceStatus,
+                    "READY"
+                );
 
             }
 
         };
 
+
+    /* ================================================
+       MICROPHONE BUTTON
+       ================================================ */
 
     if (micBtn) {
 
@@ -1009,15 +1087,14 @@ function setupVoice() {
             "click",
             function() {
 
-                if (isListening) {
+                if (wakeMode) {
 
-                    recognition.stop();
-
-                } else {
+                    wakeMode = false;
+                    commandMode = false;
 
                     try {
 
-                        recognition.start();
+                        recognition.stop();
 
                     } catch (error) {
 
@@ -1026,6 +1103,29 @@ function setupVoice() {
                         );
 
                     }
+
+                    setStatus(
+                        voiceStatus,
+                        "READY"
+                    );
+
+                    return;
+                }
+
+
+                wakeMode = true;
+                commandMode = false;
+
+                try {
+
+                    recognition.start();
+
+                } catch (error) {
+
+                    console.warn(
+                        "Voice start:",
+                        error
+                    );
 
                 }
 
