@@ -76,12 +76,60 @@ ${message}
 Answer naturally and concisely.
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.8-flash",
+    const models = [
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+  "gemini-3.6-flash"
+];
+
+let response = null;
+let lastError = null;
+
+for (const model of models) {
+  try {
+
+    console.log(`Trying Gemini model: ${model}`);
+
+    response = await ai.models.generateContent({
+      model,
       contents: prompt
     });
 
-    const reply = response.text?.trim();
+    console.log(`Gemini model succeeded: ${model}`);
+
+    break;
+
+  } catch (error) {
+
+    lastError = error;
+
+    const message =
+      error?.message || "";
+
+    const isTemporary =
+      message.includes("503") ||
+      message.includes("UNAVAILABLE") ||
+      message.toLowerCase().includes("high demand");
+
+    if (!isTemporary) {
+      throw error;
+    }
+
+    console.warn(
+      `Gemini model unavailable: ${model}`
+    );
+  }
+}
+
+if (!response) {
+  throw lastError ||
+    new Error(
+      "All Gemini models are temporarily unavailable."
+    );
+}
+
+const reply =
+  response.text?.trim();
 
     if (!reply) {
       return res.status(502).json({
