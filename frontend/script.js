@@ -352,8 +352,8 @@ async function sendMessage() {
     /* OPEN YOUTUBE */
 
     if (
-        command === "open youtube" ||
-        command === "jarvis open youtube"
+    command.includes("open youtube")
+) {
     ) {
 
         const reply =
