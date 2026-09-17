@@ -209,7 +209,10 @@ async function sendMessage() {
        ===================================================== */
 
     const command =
-        message.toLowerCase().trim();
+    message
+        .toLowerCase()
+        .replace(/hey jarvis[,\s]*/i, "")
+        .trim();
 
 
     /* STOP SPEAKING */
