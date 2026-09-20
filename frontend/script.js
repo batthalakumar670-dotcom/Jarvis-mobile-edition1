@@ -2033,14 +2033,16 @@ function speak(text) {
             );
 if (resumeVoiceAfterSpeech) {
     resumeVoiceAfterSpeech = false;
-    wakeMode = true;
-    commandMode = true;
-
+    
 
         setTimeout(function() {
     try {
+       wakeMode = true;
+commandMode = true;
         recognition.start();
     } catch (error) {
+       wakeMode = false;
+commandMode = false;
         console.warn(
             "Voice resume:",
             error
