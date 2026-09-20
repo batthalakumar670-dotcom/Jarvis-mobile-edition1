@@ -1776,7 +1776,13 @@ function setupVoice() {
                Automatically restart while
                hands-free mode is active.
             */
-
+if (
+    commandMode &&
+    userInput &&
+    userInput.value.trim()
+) {
+    sendMessage();
+}
             if (wakeMode) {
 
                 setTimeout(
