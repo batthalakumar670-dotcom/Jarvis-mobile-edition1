@@ -2031,7 +2031,20 @@ function speak(text) {
                 voiceStatus,
                 "READY"
             );
+if (resumeVoiceAfterSpeech) {
+    resumeVoiceAfterSpeech = false;
+    wakeMode = true;
+    commandMode = true;
 
+    try {
+        recognition.start();
+    } catch (error) {
+        console.warn(
+            "Voice resume:",
+            error
+        );
+    }
+}
         };
 
 
