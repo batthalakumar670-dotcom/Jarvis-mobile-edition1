@@ -204,10 +204,54 @@ async function sendMessage() {
         "USER MESSAGE:",
         message
     );
-   /* GOOGLE COMMAND */
+/* =========================
+   J.A.R.V.I.S. APP COMMANDS
+========================= */
+
+const lowerMessage =
+    message.toLowerCase();
+
+/* GOOGLE SEARCH */
 
 if (
-    message.toLowerCase().includes("open google")
+    lowerMessage.includes("search google for")
+) {
+
+    const query =
+        message
+            .replace(
+                /.*search google for/i,
+                ""
+            )
+            .trim();
+
+    if (!query) {
+        addMessage(
+            "What should I search for on Google?",
+            "assistant"
+        );
+        return;
+    }
+
+    addMessage(
+        `Searching Google for "${query}".`,
+        "assistant"
+    );
+
+    window.open(
+        "https://www.google.com/search?q=" +
+        encodeURIComponent(query),
+        "_blank"
+    );
+
+    return;
+}
+
+
+/* GOOGLE */
+
+if (
+    lowerMessage.includes("open google")
 ) {
 
     addMessage(
@@ -222,54 +266,49 @@ if (
 
     return;
 }
-/* GOOGLE SEARCH COMMAND */
+
+
+/* YOUTUBE SEARCH */
 
 if (
-    message.toLowerCase().includes("search google for")
+    lowerMessage.includes("search youtube for")
 ) {
 
     const query =
         message
             .replace(
-                /.*search google for/i,
+                /.*search youtube for/i,
                 ""
             )
             .trim();
 
     if (!query) {
-
         addMessage(
-            "What should I search for on Google?",
+            "What should I search for on YouTube?",
             "assistant"
         );
-
         return;
     }
 
     addMessage(
-        `Searching Google for "${query}".`,
+        `Searching YouTube for "${query}".`,
         "assistant"
     );
 
-    const googleUrl =
-        "https://www.google.com/search?q=" +
-        encodeURIComponent(query);
-
     window.open(
-        googleUrl,
+        "https://www.youtube.com/results?search_query=" +
+        encodeURIComponent(query),
         "_blank"
     );
 
     return;
-}   
-/* YOUTUBE COMMANDS */
+}
 
-const lowerMessage =
-    message.toLowerCase();
+
+/* YOUTUBE */
 
 if (
-    lowerMessage.includes("open youtube") &&
-    !lowerMessage.includes("search")
+    lowerMessage.includes("open youtube")
 ) {
 
     addMessage(
@@ -285,39 +324,233 @@ if (
     return;
 }
 
+
+/* INSTAGRAM */
+
 if (
-    lowerMessage.includes("search youtube for")
+    lowerMessage.includes("open instagram")
+) {
+
+    addMessage(
+        "Opening Instagram.",
+        "assistant"
+    );
+
+    window.open(
+        "https://www.instagram.com",
+        "_blank"
+    );
+
+    return;
+}
+
+
+/* SPOTIFY */
+
+if (
+    lowerMessage.includes("open spotify")
+) {
+
+    addMessage(
+        "Opening Spotify.",
+        "assistant"
+    );
+
+    window.open(
+        "https://open.spotify.com",
+        "_blank"
+    );
+
+    return;
+}
+
+
+/* GOOGLE MAPS SEARCH */
+
+if (
+    lowerMessage.includes("search maps for") ||
+    lowerMessage.includes("search google maps for")
 ) {
 
     const query =
         message
             .replace(
-                /.*search youtube for/i,
+                /.*search (google )?maps for/i,
                 ""
             )
             .trim();
 
     if (!query) {
-
         addMessage(
-            "What should I search for on YouTube?",
+            "What should I search for on Google Maps?",
             "assistant"
         );
-
         return;
     }
 
     addMessage(
-        `Searching YouTube for "${query}".`,
+        `Searching Google Maps for "${query}".`,
         "assistant"
     );
 
-    const youtubeUrl =
-        "https://www.youtube.com/results?search_query=" +
-        encodeURIComponent(query);
+    window.open(
+        "https://www.google.com/maps/search/" +
+        encodeURIComponent(query),
+        "_blank"
+    );
+
+    return;
+}
+
+
+/* GOOGLE MAPS */
+
+if (
+    lowerMessage.includes("open google maps") ||
+    lowerMessage.includes("open maps")
+) {
+
+    addMessage(
+        "Opening Google Maps.",
+        "assistant"
+    );
 
     window.open(
-        youtubeUrl,
+        "https://maps.google.com",
+        "_blank"
+    );
+
+    return;
+}
+
+
+/* GMAIL */
+
+if (
+    lowerMessage.includes("open gmail")
+) {
+
+    addMessage(
+        "Opening Gmail.",
+        "assistant"
+    );
+
+    window.open(
+        "https://mail.google.com",
+        "_blank"
+    );
+
+    return;
+}
+
+
+/* AMAZON SEARCH */
+
+if (
+    lowerMessage.includes("search amazon for")
+) {
+
+    const query =
+        message
+            .replace(
+                /.*search amazon for/i,
+                ""
+            )
+            .trim();
+
+    if (!query) {
+        addMessage(
+            "What should I search for on Amazon?",
+            "assistant"
+        );
+        return;
+    }
+
+    addMessage(
+        `Searching Amazon for "${query}".`,
+        "assistant"
+    );
+
+    window.open(
+        "https://www.amazon.in/s?k=" +
+        encodeURIComponent(query),
+        "_blank"
+    );
+
+    return;
+}
+
+
+/* AMAZON */
+
+if (
+    lowerMessage.includes("open amazon")
+) {
+
+    addMessage(
+        "Opening Amazon.",
+        "assistant"
+    );
+
+    window.open(
+        "https://www.amazon.in",
+        "_blank"
+    );
+
+    return;
+}
+
+
+/* WIKIPEDIA SEARCH */
+
+if (
+    lowerMessage.includes("search wikipedia for")
+) {
+
+    const query =
+        message
+            .replace(
+                /.*search wikipedia for/i,
+                ""
+            )
+            .trim();
+
+    if (!query) {
+        addMessage(
+            "What should I search for on Wikipedia?",
+            "assistant"
+        );
+        return;
+    }
+
+    addMessage(
+        `Searching Wikipedia for "${query}".`,
+        "assistant"
+    );
+
+    window.open(
+        "https://en.wikipedia.org/wiki/Special:Search?search=" +
+        encodeURIComponent(query),
+        "_blank"
+    );
+
+    return;
+}
+
+
+/* WIKIPEDIA */
+
+if (
+    lowerMessage.includes("open wikipedia")
+) {
+
+    addMessage(
+        "Opening Wikipedia.",
+        "assistant"
+    );
+
+    window.open(
+        "https://www.wikipedia.org",
         "_blank"
     );
 
