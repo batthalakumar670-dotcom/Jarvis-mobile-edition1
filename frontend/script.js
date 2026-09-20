@@ -210,7 +210,205 @@ async function sendMessage() {
 
 const lowerMessage =
     message.toLowerCase();
+/* NATURAL LANGUAGE COMMANDS */
 
+/* NATURAL GOOGLE SEARCH */
+
+if (
+    lowerMessage.startsWith("google ") ||
+    lowerMessage.startsWith("search for ") ||
+    (
+        lowerMessage.startsWith("find ") &&
+        !lowerMessage.includes(" on amazon") &&
+        !lowerMessage.includes(" on youtube") &&
+        !lowerMessage.includes(" on wikipedia") &&
+        !lowerMessage.includes(" on maps") &&
+        !lowerMessage.includes(" on google maps")
+    )
+) {
+
+    let query = "";
+
+    if (
+        lowerMessage.startsWith("google ")
+    ) {
+
+        query =
+            message
+                .replace(
+                    /^google\s+/i,
+                    ""
+                )
+                .trim();
+
+    } else if (
+        lowerMessage.startsWith("search for ")
+    ) {
+
+        query =
+            message
+                .replace(
+                    /^search for\s+/i,
+                    ""
+                )
+                .trim();
+
+    } else {
+
+        query =
+            message
+                .replace(
+                    /^find\s+/i,
+                    ""
+                )
+                .trim();
+    }
+
+    if (query) {
+
+        addMessage(
+            `Searching Google for "${query}".`,
+            "assistant"
+        );
+
+        window.open(
+            "https://www.google.com/search?q=" +
+            encodeURIComponent(query),
+            "_blank"
+        );
+
+        return;
+    }
+}
+
+
+/* NATURAL YOUTUBE SEARCH */
+
+if (
+    lowerMessage.includes("on youtube")
+) {
+
+    const match =
+        message.match(
+            /(?:play|find|search)\s+(.+?)\s+on youtube/i
+        );
+
+    if (match) {
+
+        const query =
+            match[1].trim();
+
+        addMessage(
+            `Searching YouTube for "${query}".`,
+            "assistant"
+        );
+
+        window.open(
+            "https://www.youtube.com/results?search_query=" +
+            encodeURIComponent(query),
+            "_blank"
+        );
+
+        return;
+    }
+}
+
+
+/* NATURAL AMAZON SEARCH */
+
+if (
+    lowerMessage.includes("on amazon")
+) {
+
+    const match =
+        message.match(
+            /(?:find|search|buy)\s+(.+?)\s+on amazon/i
+        );
+
+    if (match) {
+
+        const query =
+            match[1].trim();
+
+        addMessage(
+            `Searching Amazon for "${query}".`,
+            "assistant"
+        );
+
+        window.open(
+            "https://www.amazon.in/s?k=" +
+            encodeURIComponent(query),
+            "_blank"
+        );
+
+        return;
+    }
+}
+
+
+/* NATURAL WIKIPEDIA SEARCH */
+
+if (
+    lowerMessage.includes("on wikipedia")
+) {
+
+    const match =
+        message.match(
+            /(?:find|search)\s+(.+?)\s+on wikipedia/i
+        );
+
+    if (match) {
+
+        const query =
+            match[1].trim();
+
+        addMessage(
+            `Searching Wikipedia for "${query}".`,
+            "assistant"
+        );
+
+        window.open(
+            "https://en.wikipedia.org/wiki/Special:Search?search=" +
+            encodeURIComponent(query),
+            "_blank"
+        );
+
+        return;
+    }
+}
+
+
+/* NATURAL MAPS SEARCH */
+
+if (
+    lowerMessage.includes("on maps") ||
+    lowerMessage.includes("on google maps")
+) {
+
+    const match =
+        message.match(
+            /(?:find|search)\s+(.+?)\s+on (?:google )?maps/i
+        );
+
+    if (match) {
+
+        const query =
+            match[1].trim();
+
+        addMessage(
+            `Searching Google Maps for "${query}".`,
+            "assistant"
+        );
+
+        window.open(
+            "https://www.google.com/maps/search/" +
+            encodeURIComponent(query),
+            "_blank"
+        );
+
+        return;
+    }
+}
 /* GOOGLE SEARCH */
 
 if (
