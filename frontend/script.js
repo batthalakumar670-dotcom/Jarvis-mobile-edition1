@@ -2036,6 +2036,8 @@ if (resumeVoiceAfterSpeech) {
     wakeMode = true;
     commandMode = true;
 
+
+        setTimeout(function() {
     try {
         recognition.start();
     } catch (error) {
@@ -2044,6 +2046,8 @@ if (resumeVoiceAfterSpeech) {
             error
         );
     }
+}, 700);
+
 }
         };
 
