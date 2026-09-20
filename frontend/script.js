@@ -21,6 +21,7 @@ let conversation = [];
 let isSending = false;
 let recognition = null;
 let isListening = false;
+let resumeVoiceAfterSpeech = false;
 let voices = [];
 
 
