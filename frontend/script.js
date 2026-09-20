@@ -556,6 +556,190 @@ if (
 
     return;
 }
+   /* =========================
+   LOCAL J.A.R.V.I.S. COMMANDS
+========================= */
+
+/* TIME */
+
+if (
+    lowerMessage.includes("what time is it") ||
+    lowerMessage === "time" ||
+    lowerMessage.includes("current time")
+) {
+
+    const now =
+        new Date();
+
+    const time =
+        now.toLocaleTimeString(
+            "en-IN",
+            {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true
+            }
+        );
+
+    addMessage(
+        `The current time is ${time}.`,
+        "assistant"
+    );
+
+    speak(
+        `The current time is ${time}.`
+    );
+
+    return;
+}
+
+
+/* DATE */
+
+if (
+    lowerMessage.includes("what is today's date") ||
+    lowerMessage.includes("what's today's date") ||
+    lowerMessage.includes("today's date") ||
+    lowerMessage === "date"
+) {
+
+    const now =
+        new Date();
+
+    const date =
+        now.toLocaleDateString(
+            "en-IN",
+            {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric"
+            }
+        );
+
+    addMessage(
+        `Today is ${date}.`,
+        "assistant"
+    );
+
+    speak(
+        `Today is ${date}.`
+    );
+
+    return;
+}
+
+
+/* BATTERY */
+
+if (
+    lowerMessage.includes("battery") ||
+    lowerMessage.includes("battery percentage") ||
+    lowerMessage.includes("battery level")
+) {
+
+    if (
+        navigator.getBattery
+    ) {
+
+        const battery =
+            await navigator.getBattery();
+
+        const level =
+            Math.round(
+                battery.level * 100
+            );
+
+        const charging =
+            battery.charging
+                ? "and it is currently charging"
+                : "and it is not charging";
+
+        addMessage(
+            `Battery level is ${level}% ${charging}.`,
+            "assistant"
+        );
+
+        speak(
+            `Battery level is ${level}% ${charging}.`
+        );
+
+    } else {
+
+        addMessage(
+            "Battery information is not available in this browser.",
+            "assistant"
+        );
+
+    }
+
+    return;
+}
+
+
+/* CALCULATOR */
+
+if (
+    lowerMessage.startsWith("calculate ") ||
+    lowerMessage.startsWith("what is ")
+) {
+
+    let expression =
+        message
+            .replace(
+                /^calculate\s+/i,
+                ""
+            )
+            .replace(
+                /^what is\s+/i,
+                ""
+            )
+            .trim();
+
+    if (
+        /^[0-9+\-*/().%\s]+$/.test(
+            expression
+        )
+    ) {
+
+        try {
+
+            const result =
+                Function(
+                    `"use strict"; return (${expression})`
+                )();
+
+            if (
+                Number.isFinite(result)
+            ) {
+
+                addMessage(
+                    `The answer is ${result}.`,
+                    "assistant"
+                );
+
+                speak(
+                    `The answer is ${result}.`
+                );
+
+                return;
+            }
+
+        } catch (error) {
+            console.warn(
+                "Calculator error:",
+                error
+            );
+        }
+    }
+
+    addMessage(
+        "I couldn't calculate that expression.",
+        "assistant"
+    );
+
+    return;
+}
     isSending = true;
 
     userInput.value = "";
