@@ -1847,7 +1847,7 @@ function setupVoice() {
 
 
                 wakeMode = true;
-                commandMode = false;
+commandMode = true;
 
                 try {
 
