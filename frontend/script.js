@@ -222,6 +222,46 @@ if (
 
     return;
 }
+/* GOOGLE SEARCH COMMAND */
+
+if (
+    message.toLowerCase().includes("search google for")
+) {
+
+    const query =
+        message
+            .replace(
+                /.*search google for/i,
+                ""
+            )
+            .trim();
+
+    if (!query) {
+
+        addMessage(
+            "What should I search for on Google?",
+            "assistant"
+        );
+
+        return;
+    }
+
+    addMessage(
+        `Searching Google for "${query}".`,
+        "assistant"
+    );
+
+    const googleUrl =
+        "https://www.google.com/search?q=" +
+        encodeURIComponent(query);
+
+    window.open(
+        googleUrl,
+        "_blank"
+    );
+
+    return;
+}   
 /* YOUTUBE COMMANDS */
 
 const lowerMessage =
