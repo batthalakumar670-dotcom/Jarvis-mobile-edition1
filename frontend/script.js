@@ -762,6 +762,7 @@ if (
 
 if (
     lowerMessage.includes("what time is it") ||
+   lowerMessage.includes("what is the time") ||
     lowerMessage === "time" ||
     lowerMessage.includes("current time")
 ) {
