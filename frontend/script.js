@@ -1858,6 +1858,7 @@ sendMessage();
 
                 wakeMode = true;
 commandMode = true;
+               resumeVoiceAfterSpeech = true;
 
                 try {
 
