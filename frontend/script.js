@@ -204,6 +204,24 @@ async function sendMessage() {
         "USER MESSAGE:",
         message
     );
+   /* GOOGLE COMMAND */
+
+if (
+    message.toLowerCase().includes("open google")
+) {
+
+    addMessage(
+        "Opening Google.",
+        "assistant"
+    );
+
+    window.open(
+        "https://www.google.com",
+        "_blank"
+    );
+
+    return;
+}
 /* YOUTUBE COMMANDS */
 
 const lowerMessage =
