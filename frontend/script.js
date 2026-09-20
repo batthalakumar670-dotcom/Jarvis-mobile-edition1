@@ -1781,7 +1781,9 @@ if (
     userInput &&
     userInput.value.trim()
 ) {
-    sendMessage();
+    wakeMode = false;
+commandMode = false;
+sendMessage();
 }
             if (wakeMode) {
 
