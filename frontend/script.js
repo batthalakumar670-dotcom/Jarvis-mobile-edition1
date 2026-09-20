@@ -2025,34 +2025,62 @@ function speak(text) {
 
 
     utterance.onend =
-        function() {
+    function() {
 
-            setStatus(
-                voiceStatus,
-                "READY"
-            );
-if (resumeVoiceAfterSpeech) {
-    resumeVoiceAfterSpeech = false;
-    
-
-        setTimeout(function() {
-    try {
-       wakeMode = true;
-commandMode = true;
-        recognition.start();
-    } catch (error) {
-       wakeMode = false;
-commandMode = false;
-        console.warn(
-            "Voice resume:",
-            error
+        setStatus(
+            voiceStatus,
+            "READY"
         );
-    }
-}, 700);
 
-}
-        };
+        if (!resumeVoiceAfterSpeech) {
+            return;
+        }
 
+        resumeVoiceAfterSpeech = false;
+
+        let attempts = 0;
+
+        function restartVoice() {
+
+            attempts++;
+
+            try {
+
+                wakeMode = true;
+                commandMode = true;
+
+                recognition.start();
+
+            } catch (error) {
+
+                wakeMode = false;
+                commandMode = false;
+
+                if (attempts < 5) {
+
+                    setTimeout(
+                        restartVoice,
+                        1000
+                    );
+
+                } else {
+
+                    console.warn(
+                        "Voice resume failed:",
+                        error
+                    );
+
+                }
+
+            }
+        }
+
+        setTimeout(
+            restartVoice,
+            800
+        );
+
+    };
 
     utterance.onerror =
         function() {
