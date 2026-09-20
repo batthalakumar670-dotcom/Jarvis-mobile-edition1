@@ -204,7 +204,22 @@ async function sendMessage() {
         "USER MESSAGE:",
         message
     );
+if (
+    message.toLowerCase().includes("open youtube")
+) {
 
+    addMessage(
+        "Opening YouTube.",
+        "assistant"
+    );
+
+    window.open(
+        "https://www.youtube.com",
+        "_blank"
+    );
+
+    return;
+}
     isSending = true;
 
     userInput.value = "";
