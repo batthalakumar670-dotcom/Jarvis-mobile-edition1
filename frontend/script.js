@@ -204,8 +204,14 @@ async function sendMessage() {
         "USER MESSAGE:",
         message
     );
+/* YOUTUBE COMMANDS */
+
+const lowerMessage =
+    message.toLowerCase();
+
 if (
-    message.toLowerCase().includes("open youtube")
+    lowerMessage.includes("open youtube") &&
+    !lowerMessage.includes("search")
 ) {
 
     addMessage(
@@ -215,6 +221,45 @@ if (
 
     window.open(
         "https://www.youtube.com",
+        "_blank"
+    );
+
+    return;
+}
+
+if (
+    lowerMessage.includes("search youtube for")
+) {
+
+    const query =
+        message
+            .replace(
+                /.*search youtube for/i,
+                ""
+            )
+            .trim();
+
+    if (!query) {
+
+        addMessage(
+            "What should I search for on YouTube?",
+            "assistant"
+        );
+
+        return;
+    }
+
+    addMessage(
+        `Searching YouTube for "${query}".`,
+        "assistant"
+    );
+
+    const youtubeUrl =
+        "https://www.youtube.com/results?search_query=" +
+        encodeURIComponent(query);
+
+    window.open(
+        youtubeUrl,
         "_blank"
     );
 
