@@ -2042,46 +2042,68 @@ function speak(text) {
 
         function restartVoice() {
 
-            attempts++;
+    attempts++;
 
-            try {
+    try {
 
-                wakeMode = true;
-                commandMode = true;
+        wakeMode = true;
+        commandMode = true;
 
-                recognition.start();
-
-            } catch (error) {
-
-                wakeMode = false;
-                commandMode = false;
-
-                if (attempts < 5) {
-
-                    setTimeout(
-                        restartVoice,
-                        1000
-                    );
-
-                } else {
-
-                    console.warn(
-                        "Voice resume failed:",
-                        error
-                    );
-
-                }
-
-            }
+        try {
+            recognition.abort();
+        } catch (error) {
+            console.warn(
+                "Voice abort:",
+                error
+            );
         }
 
         setTimeout(
-            restartVoice,
-            800
+            function() {
+
+                try {
+
+                    recognition.start();
+
+                } catch (error) {
+
+                    wakeMode = false;
+                    commandMode = false;
+
+                    if (attempts < 5) {
+
+                        setTimeout(
+                            restartVoice,
+                            1000
+                        );
+
+                    } else {
+
+                        console.warn(
+                            "Voice resume failed:",
+                            error
+                        );
+
+                    }
+
+                }
+
+            },
+            300
         );
 
-    };
+    } catch (error) {
 
+        wakeMode = false;
+        commandMode = false;
+
+        console.warn(
+            "Voice restart:",
+            error
+        );
+
+    }
+}
     utterance.onerror =
         function() {
 
